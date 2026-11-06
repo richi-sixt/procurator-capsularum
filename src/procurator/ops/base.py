@@ -9,7 +9,7 @@ from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
-from ..model import FileItem
+from ..model import FileItem, PlannedChange
 
 
 class Operation(ABC):
@@ -76,6 +76,10 @@ class Operation(ABC):
 
     def send_preview(self, items: list[FileItem]) -> dict[str, Any] | None:
         """Was würde die Analyse an ein Modell senden? Nur für Operationen mit `sends_data`."""
+        return None
+
+    def record_decisions(self, accepted: list[PlannedChange], rejected: list[PlannedChange]) -> None:
+        """Nach dem Anwenden: was übernommen und was in der Vorschau abgewählt wurde (zum Lernen)."""
         return None
 
     def editable_target(self, item: FileItem) -> str | None:

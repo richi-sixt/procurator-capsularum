@@ -52,6 +52,8 @@ class AiConfig:
     claude_model: str = "claude-sonnet-5-5"
     api_key_env: str = "ANTHROPIC_API_KEY"  # Name der Variable, nie der Schlüssel selbst
     privacy_level: int = 0
+    # Aus angenommenen, abgelehnten und korrigierten Vorschlägen lernen (nur lokal gespeichert)
+    learn: bool = True
 
 
 @dataclass
@@ -121,6 +123,8 @@ def parse(data: dict[str, Any]) -> Config:
     if not isinstance(ai.privacy_level, int) or isinstance(ai.privacy_level, bool) \
             or ai.privacy_level not in PRIVACY_LEVELS:
         raise ConfigError("Datenschutzstufe muss 0, 1 oder 2 sein")
+    if not isinstance(ai.learn, bool):
+        raise ConfigError("«Aus Entscheidungen lernen»: ja oder nein erwartet")
     if not isinstance(ai.api_key_env, str) or not ENV_NAME.match(ai.api_key_env.strip()):
         raise ConfigError(
             "Hier steht der Name der Umgebungsvariable (zum Beispiel ANTHROPIC_API_KEY), "

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import type { Config, ConfigResponse, ProbeResult } from '../types'
+import type { Config, ConfigResponse, Learning, ProbeResult } from '../types'
 
 type Props = { onClose: () => void }
 
@@ -15,6 +15,7 @@ export default function SettingsDialog({ onClose }: Props) {
   const [probe, setProbe] = useState<ProbeResult | null>(null)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+  const [learning, setLearning] = useState<Learning | null>(null)
 
   useEffect(() => {
     api.config().then((r) => {
@@ -22,6 +23,7 @@ export default function SettingsDialog({ onClose }: Props) {
       setKeywords(lines(r.config.privacy.sensitive_keywords))
       setExtensions(lines(r.config.privacy.sensitive_extensions))
     }).catch((e: Error) => setError(e.message))
+    api.learning().then(setLearning).catch(() => setLearning(null))
   }, [])
 
   if (!cfg || !info) {
@@ -56,6 +58,10 @@ export default function SettingsDialog({ onClose }: Props) {
       setKeywords(lines(r.config.privacy.sensitive_keywords))
       setExtensions(lines(r.config.privacy.sensitive_extensions))
     } catch (e) { setError((e as Error).message) }
+  }
+  const clearLearning = async () => {
+    if (!window.confirm('Alles löschen, was aus deinen Entscheidungen gemerkt wurde?')) return
+    try { await api.clearLearning(); setLearning(await api.learning()) } catch (e) { setError((e as Error).message) }
   }
   const resetLists = () => {
     setKeywords(lines(info.defaults.privacy.sensitive_keywords))
@@ -116,6 +122,20 @@ export default function SettingsDialog({ onClose }: Props) {
               : 'Beim lokalen Modell verlassen die Daten den Rechner nicht, eine Freigabe vor jedem Lauf entfällt.'}
           </small>
         </div>
+
+        <h3>Aus Entscheidungen lernen</h3>
+        <label className="check">
+          <input type="checkbox" checked={cfg.ai.learn} onChange={(e) => setAi({ learn: e.target.checked })} />
+          <span>Angenommene, abgelehnte und korrigierte Vorschläge merken und dem Modell als Beispiele mitgeben
+            <small className="muted"> (Standard: an. Gemerkt wird nur auf diesem Rechner, sensible Dateien nie.
+              {cloud ? ' Bei Cloud gehen Beispiele erst ab Datenschutzstufe 1 mit und stehen in der Freigabe.' : ''})</small></span>
+        </label>
+        {learning && (
+          <p className="muted small">
+            Gemerkt: {learning.stats.accepted} angenommen, {learning.stats.edited} korrigiert, {learning.stats.rejected} abgelehnt.{' '}
+            {learning.stats.total > 0 && <button className="link" onClick={() => void clearLearning()}>Alles löschen</button>}
+          </p>
+        )}
 
         <h3>Sensible Dateien</h3>
         <p className="muted small">

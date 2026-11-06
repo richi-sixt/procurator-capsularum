@@ -74,6 +74,7 @@ export type AiConfig = {
   claude_model: string
   api_key_env: string
   privacy_level: number
+  learn: boolean
 }
 export type PrivacyConfig = {
   sensitive_keywords: string[]
@@ -106,4 +107,25 @@ export type SendPreview = {
   batches?: number
   sample?: Record<string, unknown>[]
   needsConfirmation?: boolean
+  learning?: { examples: number; habits: number; rejected: number; text: string }
+}
+
+export type Learning = {
+  stats: { accepted: number; edited: number; rejected: number; total: number }
+  recent: { kind: string; name: string; to_folder: string; to_name: string }[]
+}
+
+export type Component = { name: string; version: string; license: string; optional: boolean }
+export type About = {
+  name: string
+  version: string
+  author: string
+  copyright: string
+  license: { id: string; name: string; url: string }
+  notice: string
+  repository: string
+  inspiration: { name: string; url?: string; note: string }[]
+  external: { name: string; url: string; note: string }[]
+  components: { python: Component[]; frontend: Component[] }
+  system: { python: string; platform: string }
 }

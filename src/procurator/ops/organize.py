@@ -10,10 +10,11 @@ from pathlib import Path
 from typing import Any, ClassVar, Literal
 
 from .. import config as cfgmod
+from ..ai.learning import Decision, DecisionStore
 from ..ai.organizer import OrganizeOptions, Organizer
 from ..ai.proposals import Proposal, ProposalStore
 from ..ai.validate import ProposalError, clean_folder, clean_name
-from ..model import FileItem
+from ..model import FileItem, PlannedChange
 from ..privacy import rules_from_config
 from .base import Operation
 
@@ -44,6 +45,7 @@ class AiOrganize(Operation):
         self._props: dict[Path, Proposal] = {}
         self._withheld: dict[Path, str] = {}
         self._pending = 0
+        self._roots: set[Path] = set()
         self._cfg = cfgmod.Config()
 
     # --- Hilfen -------------------------------------------------------------------
@@ -66,6 +68,7 @@ class AiOrganize(Operation):
         self._cfg, _warning = cfgmod.load()
         rules = rules_from_config(self._cfg)
         allow_all = (not self._cfg.is_cloud) and self._cfg.privacy.allow_sensitive_local
+        self._roots = {i.root for i in items if i.root is not None}
         stats: dict[Path, os.stat_result] = {}
         for item in items:
             try:
@@ -150,6 +153,35 @@ class AiOrganize(Operation):
     def send_preview(self, items: list[FileItem]) -> dict[str, Any] | None:
         cfg, _warning = cfgmod.load()
         return Organizer(cfg).preview(items, self._options())
+
+    def _decision(self, kind: str, c: PlannedChange) -> Decision | None:
+        p = self._props.get(c.src)
+        if p is None or p.error or c.dst is None:
+            return None
+        root = next((r for r in self._roots if c.src.is_relative_to(r)), None)
+        if root is None:
+            return None
+        try:
+            from_folder = "" if c.src.parent == root else c.src.parent.relative_to(root).as_posix()
+            to_folder = "" if c.dst.parent == root else c.dst.parent.relative_to(root).as_posix()
+        except ValueError:
+            return None
+        return Decision(kind, c.src.name, c.src.suffix.lower(), from_folder, to_folder, c.dst.name)
+
+    def record_decisions(self, accepted: list[PlannedChange], rejected: list[PlannedChange]) -> None:
+        """Übernommene, korrigierte und abgewählte Vorschläge lokal merken (siehe `ai.learning`)."""
+        if not self._cfg.ai.learn:
+            return
+        found: list[Decision] = []
+        for c in accepted:
+            kind = "edited" if (self._props.get(c.src) and self._props[c.src].edited) else "accepted"
+            if d := self._decision(kind, c):
+                found.append(d)
+        for c in rejected:
+            p = self._props.get(c.src)
+            if p is not None and not p.edited and (d := self._decision("rejected", c)):
+                found.append(d)
+        DecisionStore().record(found, rules_from_config(self._cfg))
 
     def edit_target(self, path: Path, target: str) -> None:
         """Ziel von Hand ändern. Gleiche Sicherheitsprüfung wie bei Vorschlägen des Modells."""

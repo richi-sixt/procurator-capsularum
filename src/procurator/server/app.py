@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -15,11 +15,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .. import about as aboutmod
 from .. import config as cfgmod
+from ..ai.learning import DecisionStore
 from ..ai.probe import probe
 from ..engine import apply_plan, make_plan
 from ..journal import Journal
-from ..model import FileItem, Plan
+from ..model import FileItem, Plan, Status
+from ..ops.base import Operation
 from ..ops.registry import SPECS, ParamError, build
 from ..privacy import rules_from_config
 from ..scanner import scan
@@ -84,14 +87,19 @@ def _items(req: ScanRequest) -> list[FileItem]:
     return items
 
 
-def _plan(req: PlanRequest) -> Plan:
+def _build_plan(req: PlanRequest) -> tuple[Operation, Plan]:
     try:
         op = build(req.operation, req.params)
     except ParamError as exc:
         raise HTTPException(422, str(exc)) from exc
     cfg, _warning = cfgmod.load()
-    return make_plan(op, _items(req), force_unique=req.force_unique,
+    plan = make_plan(op, _items(req), force_unique=req.force_unique,
                      sensitive=rules_from_config(cfg))
+    return op, plan
+
+
+def _plan(req: PlanRequest) -> Plan:
+    return _build_plan(req)[1]
 
 
 def _serialize(plan: Plan) -> dict[str, Any]:
@@ -205,7 +213,7 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
     @app.post("/api/apply")
     def apply(req: ApplyRequest) -> dict[str, Any]:
         """Startet einen Hintergrund-Job. Der Fortschritt kommt über /api/jobs/{id}."""
-        plan_ = _plan(req)  # neu berechnen: dem Client-Zustand wird nicht vertraut
+        op, plan_ = _build_plan(req)  # neu berechnen: dem Client-Zustand wird nicht vertraut
         disabled = {Path(p) for p in req.disabled}
         for c in plan_.changes:
             c.enabled = c.src not in disabled
@@ -222,6 +230,12 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
         def run() -> None:
             try:
                 result = apply_plan(plan_, db, progress, job.cancel)
+                try:  # Lernen darf das Anwenden nie stören
+                    rejected = [c for c in plan_.changes
+                                if c.status == Status.OK and not c.enabled and c.dst is not None]
+                    op.record_decisions(result.done, rejected)
+                except Exception:
+                    pass
                 job.ok = len(result.done)
                 job.batch_id = result.batch_id
                 job.failed = [{"src": c.src.name, "error": msg} for c, msg in result.failed]
@@ -307,6 +321,22 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
             raise HTTPException(404, "Auftrag unbekannt")
         job.cancel.set()
         return {"ok": True}
+
+    @app.get("/api/about")
+    def about_info() -> dict[str, Any]:
+        """Version, Autorin, Lizenz und die Lizenzen der verwendeten Bausteine."""
+        return aboutmod.about()
+
+    @app.get("/api/learning")
+    def learning_info() -> dict[str, Any]:
+        """Was aus deinen Entscheidungen gemerkt wurde. Liegt nur auf diesem Rechner."""
+        store = DecisionStore()
+        return {"stats": store.stats(),
+                "recent": [asdict(d) for d in store.recent(30)]}
+
+    @app.delete("/api/learning")
+    def learning_clear() -> dict[str, int]:
+        return {"deleted": DecisionStore().clear()}
 
     @app.get("/api/config")
     def get_config() -> dict[str, Any]:

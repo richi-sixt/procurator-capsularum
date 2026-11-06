@@ -24,6 +24,7 @@ from ..model import FileItem
 from ..privacy import rules_from_config, split_for_config
 from ..scanner import natural_key
 from . import providers
+from .learning import DecisionStore, Learning
 from .proposals import Proposal, ProposalStore
 from .providers import RESPONSE_SCHEMA, ProviderError
 from .validate import validate
@@ -90,13 +91,14 @@ MODE_RULES = {
 }
 
 
-def build_system(options: OrganizeOptions) -> str:
+def build_system(options: OrganizeOptions, learning: str = "") -> str:
     hint = options.hint.strip()[:500]
-    return SYSTEM.format(
+    text = SYSTEM.format(
         depth=options.max_depth,
         mode_rule=MODE_RULES.get(options.mode, ""),
         hint=f"\n- Additional instructions from the user: {hint}" if hint else "",
     )
+    return f"{text}\n\n{learning}" if learning else text
 
 
 def _relative_folder(item: FileItem) -> str:
@@ -190,10 +192,23 @@ def parse_response(text: str) -> list[dict[str, Any]]:
 
 
 class Organizer:
-    def __init__(self, cfg: cfgmod.Config, store: ProposalStore | None = None) -> None:
+    def __init__(
+        self, cfg: cfgmod.Config, store: ProposalStore | None = None,
+        decisions: DecisionStore | None = None,
+    ) -> None:
         self.cfg = cfg
         self.store = store or ProposalStore()
+        self.decisions = decisions or DecisionStore(self.store.path)
 
+    def learning_for(self, todo: list[FileItem]) -> Learning:
+        """Gewohnheiten und Beispiele aus früheren Entscheidungen, falls erlaubt und vorhanden."""
+        if not self.cfg.ai.learn:
+            return Learning()
+        if self.cfg.is_cloud and self.cfg.ai.privacy_level < 1:
+            return Learning()  # Stufe 0 bei Cloud: nichts ausser den Dateien dieses Laufs
+        allow_all = (not self.cfg.is_cloud) and self.cfg.privacy.allow_sensitive_local
+        rules = None if allow_all else rules_from_config(self.cfg)
+        return self.decisions.learning({i.suffix for i in todo}, rules)
     def preview(self, items: list[FileItem], options: OrganizeOptions) -> dict[str, Any]:
         """Was würde gesendet? Ohne Aufruf des Modells, ohne Schreiben."""
         allowed, withheld = split_for_config(items, self.cfg)
@@ -202,12 +217,15 @@ class Organizer:
         todo = [i for i in allowed if i.path in stats and i.path not in known]
         level = self.cfg.ai.privacy_level
         sample = build_payload(todo[:3], level) if todo else []
+        learning = self.learning_for(todo) if todo else Learning()
         model = self.cfg.ai.claude_model if self.cfg.is_cloud else self.cfg.ai.ollama_model
         return {
             "provider": self.cfg.ai.provider, "model": model, "isCloud": self.cfg.is_cloud,
             "privacyLevel": level, "privacyText": cfgmod.PRIVACY_LEVELS[level],
             "files": len(todo), "withheld": len(withheld), "cached": len(known),
             "sample": sample, "batches": -(-len(todo) // BATCH_SIZE),
+            "learning": {"examples": learning.examples, "habits": learning.habits,
+                         "rejected": learning.rejected, "text": learning.text},
             "needsConfirmation": self.cfg.requires_confirmation,
         }
 
@@ -237,7 +255,7 @@ class Organizer:
         level = self.cfg.ai.privacy_level
         folders = existing_folders(items, self.cfg) if level >= 1 else []
         roots = sorted({i.root.name for i in items if i.root is not None})
-        system = build_system(options)
+        system = build_system(options, self.learning_for(todo).text)
 
         done = 0
         for start in range(0, len(todo), BATCH_SIZE):

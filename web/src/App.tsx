@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, type PlanInput } from './api'
+import AboutDialog from './components/AboutDialog'
 import FolderPicker from './components/FolderPicker'
 import HistoryPanel from './components/HistoryPanel'
 import OperationForm, { defaults, missingRequired } from './components/OperationForm'
@@ -34,6 +35,7 @@ export default function App() {
   const [picker, setPicker] = useState(false)
   const [history, setHistory] = useState(false)
   const [settings, setSettings] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   const [sendInfo, setSendInfo] = useState<SendPreview | null>(null) // Bestätigung vor dem Senden
   const [job, setJob] = useState<Job | null>(null) // laufender Auftrag
   const [jobKind, setJobKind] = useState<'apply' | 'analyze'>('apply')
@@ -192,7 +194,10 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>Procurator Capsularum</h1>
+        <h1>
+          <img src="/favicon.svg" alt="" className="logo" />
+          Procurator Capsularum
+        </h1>
         <div className="header-actions">
           <button onClick={() => setSettings(true)}>Einstellungen</button>
           <button onClick={() => setHistory(true)}>Verlauf</button>
@@ -325,12 +330,14 @@ export default function App() {
 
       <footer className="legal">
         Procurator Capsularum · © 2026 Rüchan Sixt · Lizenz: AGPL-3.0-or-later · Ohne jede Gewährleistung ·{' '}
-        <a href="https://github.com/richi-sixt/procurator-capsularum" target="_blank" rel="noreferrer">Quellcode</a>
+        <a href="https://github.com/richi-sixt/procurator-capsularum" target="_blank" rel="noreferrer">Quellcode</a> ·{' '}
+        <button className="link" onClick={() => setAboutOpen(true)}>Über das Programm</button>
       </footer>
 
       {sendInfo && <SendDialog info={sendInfo} onCancel={() => setSendInfo(null)} onConfirm={() => void analyze(true)} />}
       {picker && <FolderPicker start={paths[paths.length - 1]} onClose={() => setPicker(false)}
         onPick={(p) => { addPath(p); setPicker(false) }} />}
+      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       {settings && <SettingsDialog onClose={() => { setSettings(false); setRefresh((n) => n + 1) }} />}
       {history && <HistoryPanel onClose={() => setHistory(false)} onChanged={() => setRefresh((n) => n + 1)} />}
     </div>

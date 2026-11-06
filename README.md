@@ -15,7 +15,7 @@ auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. E
 | **Verschieben** | In einen anderen Ordner, flach oder mit nachgebauter Ordnerstruktur. Zielordner werden angelegt, auch auf ein anderes Laufwerk |
 | **Konvertieren** | CBR → CBZ (Seiten bleiben bitidentisch), Bilder (JPG, PNG, WebP, HEIC, TIFF, BMP → JPG, PNG, WebP, optional verkleinern) |
 | **Dubletten** | Findet gleiche Dateien über ihren Inhalt und verschiebt alle bis auf eine in einen Ordner `_Dubletten`, nichts wird gelöscht. Ein lokaler Datei-Index sorgt dafür, dass so wenig wie möglich gelesen wird |
-| **KI-Vorschläge** | Ein Sprachmodell schlägt Ordner und bessere Dateinamen vor, du prüfst und korrigierst in der Vorschau. Standardmässig mit einem lokalen Modell ([Ollama](https://ollama.com/)), optional mit Claude. Sensible Dateien werden nie gesendet |
+| **KI-Vorschläge** | Ein Sprachmodell schlägt Ordner und bessere Dateinamen vor, du prüfst und korrigierst in der Vorschau. Standardmässig mit einem lokalen Modell ([Ollama](https://ollama.com/)), optional mit Claude. Sensible Dateien werden nie gesendet. Die App lernt aus deinen Entscheidungen (angenommen, abgelehnt, korrigiert), lokal gespeichert und löschbar |
 | **Sicherheit** | Konflikterkennung (gleiche Zielnamen, vorhandene Dateien werden nie überschrieben), Verlauf mit Rückgängig, sensible Dateien werden markiert |
 | **Oberfläche** | Vorschau-Tabelle mit Checkbox pro Zeile, Fortschritt und Abbrechen bei langen Läufen, gespeicherte Einstellungen |
 
@@ -93,6 +93,8 @@ Dateien zeigen).
 | `pc index` / `pc duplicates` | Datei-Index pflegen, gleiche Dateien anzeigen oder mit `--move` verschieben |
 | `pc sensitive` | Zeigt, welche Dateien als sensibel gelten |
 | `pc config` | Pfad und Werte der Konfiguration anzeigen |
+| `pc learned [--clear]` | Zeigt, was aus deinen Entscheidungen gemerkt wurde (nur lokal), oder löscht es |
+| `pc about` / `pc --version` | Version, Autor, Lizenz und die Lizenzen der Bausteine (`--licenses`) |
 | `pc history` / `pc undo` | Verlauf anzeigen, Lauf rückgängig machen |
 | `pc serve` | Web-Oberfläche starten |
 
@@ -120,6 +122,7 @@ Dateien zeigen).
 - **Vorschläge werden geprüft, bevor sie gelten:** Ein Pfad ausserhalb des gewählten Ordners, absolute Pfade, `..`, versteckte Ordner und eine geänderte Dateiendung werden nie übernommen. Unbrauchbare Vorschläge erscheinen als Fehler und werden nicht ausgeführt.
 - **Was gesendet wird, bestimmt die Datenschutzstufe** (Einstellungen): Stufe 0 nur Dateiname, Endung, Grösse und Datum. Stufe 1 zusätzlich die Ordnernamen. Stufe 2 zusätzlich einen kurzen Textauszug aus einfachen Textdateien (`.txt`, `.md`, `.csv` und ähnliche).
 - **Sensible Dateien gehen nicht ans Modell**, auch ihre Namen nicht. Nur bei einem lokalen Modell lässt sich das in den Einstellungen bewusst abschalten.
+- **Lernen aus Entscheidungen:** Nach dem Anwenden merkt sich die App, was du übernommen, in der Vorschau abgewählt oder von Hand korrigiert hast. Bei der nächsten Analyse bekommt das Modell daraus Gewohnheiten («.pdf kommt meist nach Rechnungen») und wenige Beispiele mit. Gemerkt wird nur auf deinem Rechner, sensible Dateien nie. Bei Cloud gehen Beispiele erst ab Datenschutzstufe 1 mit und stehen in der Freigabe. Ausschalten in den Einstellungen, ansehen und löschen mit `pc learned`. Über die Kommandozeile (`pc organize --apply`) wird nichts gemerkt, dort fehlt die Prüfung in der Vorschau.
 - **Cloud nur mit Bestätigung:** Bei Claude zeigt ein Dialog vor jedem Lauf, was gesendet würde (Anzahl, Stufe, erste Einträge). Auf der Kommandozeile fragt `pc organize` nach oder verlangt `--yes-cloud`.
 - **Die Qualität hängt vom Modell ab.** Kleine lokale Modelle ordnen grob richtig, liegen aber gelegentlich daneben, und ihre «Sicherheit» sagt wenig aus. Mit «Eigene Anweisung» (`--hint`) lässt sich das Ergebnis steuern.
 
@@ -196,6 +199,7 @@ PDF → Markdown, EPUB-Konvertierung und eine Desktop-App.
 Copyright © 2026 Rüchan Sixt
 
 Dieses Programm steht unter der [GNU Affero General Public License, Version 3 oder neuer](LICENSE)
-(AGPL-3.0-or-later). Du darfst es nutzen, ändern und weitergeben. Gibst du es geändert weiter, oder
+(AGPL-3.0-or-later). Die Oberfläche zeigt Version, Lizenz, Credits und die Lizenzen der verwendeten Bausteine unter
+«Über das Programm» (auf der Kommandozeile `pc about`). Du darfst es nutzen, ändern und weitergeben. Gibst du es geändert weiter, oder
 bietest du eine geänderte Version als Dienst über ein Netzwerk an, musst du den Quellcode deiner Änderungen
 unter derselben Lizenz offenlegen und den Copyright-Hinweis erhalten. Es gibt keine Gewährleistung.

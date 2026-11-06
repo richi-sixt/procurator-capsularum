@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
 
+from . import about as aboutmod
 from . import config as cfgmod
 from .ai.providers import ProviderError
 from .engine import apply_plan, make_plan
@@ -46,6 +47,20 @@ convert = typer.Typer(help="Dateien konvertieren. Ohne --apply wird nur eine Vor
                       no_args_is_help=True)
 app.add_typer(convert, name="convert")
 console = Console()
+
+
+def _show_version(value: bool) -> None:
+    if value:
+        console.print(f"{aboutmod.NAME} {aboutmod.version()}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: Annotated[bool, typer.Option("--version", callback=_show_version, is_eager=True,
+                                          help="Version anzeigen")] = False,
+) -> None:
+    """Procurator Capsularum: Dateien umbenennen und konvertieren, mit Vorschau."""
 
 Paths = Annotated[list[Path], typer.Argument(exists=True, help="Ordner oder Dateien")]
 Recursive = Annotated[bool, typer.Option("--recursive", "-r", help="Unterordner einbeziehen")]
@@ -342,6 +357,11 @@ def organize(
                   f"Datenschutzstufe {info.get('privacyLevel')}: {info.get('privacyText')}.")
     console.print(f"{info.get('files', 0)} Dateien würden gesendet, {info.get('withheld', 0)} sensible "
                   f"bleiben zurück, {info.get('cached', 0)} sind schon bekannt.")
+    learning = info.get("learning") or {}
+    if learning.get("text"):
+        console.print(f"Aus deinen früheren Entscheidungen gehen {learning['examples']} Beispiele, "
+                      f"{learning['habits']} Gewohnheiten und {learning['rejected']} abgelehnte "
+                      "Vorschläge mit (siehe `pc learned`).")
     if info.get("files"):
         if info.get("needsConfirmation") and not yes_cloud:
             console.print("[yellow]Diese Angaben verlassen den Rechner:[/yellow]")
@@ -354,6 +374,28 @@ def organize(
             console.print(f"[red]{exc}[/red]")
             raise typer.Exit(1) from exc
     _run(op, paths, recursive, apply, force_unique, show_all)
+
+
+@app.command()
+def learned(
+    clear: Annotated[bool, typer.Option("--clear", help="Alles Gemerkte löschen")] = False,
+    limit: Annotated[int, typer.Option(min=1, max=200, help="Wie viele Einträge zeigen")] = 20,
+) -> None:
+    """Zeigt, was aus deinen Entscheidungen gemerkt wurde (nur lokal), oder löscht es."""
+    from .ai.learning import DecisionStore
+
+    store = DecisionStore()
+    if clear:
+        typer.confirm(f"{store.stats()['total']} Einträge löschen?", abort=True)
+        console.print(f"{store.clear()} Einträge gelöscht.")
+        return
+    stats = store.stats()
+    console.print(f"Gemerkt: {stats['accepted']} angenommen, {stats['edited']} korrigiert, "
+                  f"{stats['rejected']} abgelehnt. Die Daten liegen nur auf diesem Rechner.")
+    labels = {"accepted": "angenommen", "edited": "korrigiert", "rejected": "abgelehnt"}
+    for d in store.recent(limit):
+        ziel = f"{d.to_folder}/{d.to_name}" if d.to_folder else d.to_name
+        console.print(f"  {labels[d.kind]:<11} {d.name} -> {ziel}", highlight=False)
 
 
 @app.command()
@@ -396,6 +438,33 @@ def sensitive(
             table.add_row(str(item.path), hit)
     console.print(table)
     console.print(f"{sum(1 for _, h in hits if h)} von {len(hits)} Dateien sind sensibel.")
+
+
+@app.command()
+def about(
+    licenses: Annotated[bool, typer.Option("--licenses", help="Alle verwendeten Bausteine mit Lizenz auflisten")] = False,
+) -> None:
+    """Version, Autorin, Lizenz und Credits anzeigen."""
+    a = aboutmod.about()
+    console.print(f"[bold]{a['name']}[/bold] {a['version']}")
+    console.print(f"{a['copyright']} · Lizenz: {a['license']['id']} ({a['license']['url']})")
+    console.print(f"Quellcode: {a['repository']}")
+    console.print(f"\n[dim]{a['notice']}[/dim]")
+    console.print("\nIdeen aus: " + ", ".join(i["name"] for i in a["inspiration"]))
+    console.print("Separat installierte Programme: " + ", ".join(e["name"] for e in a["external"]))
+    py, js = a["components"]["python"], a["components"]["frontend"]
+    console.print(f"System: Python {a['system']['python']} · {a['system']['platform']}")
+    console.print(f"Bausteine: {len(py)} Python-Pakete, {len(js)} JavaScript-Pakete "
+                  f"({'mit --licenses auflisten' if not licenses else 'siehe unten'})")
+    if licenses:
+        table = Table()
+        for col in ("Baustein", "Version", "Lizenz", "Art"):
+            table.add_column(col)
+        for c in py:
+            table.add_row(c["name"], c["version"], c["license"], "Python" + (" (optional)" if c["optional"] else ""))
+        for c in js:
+            table.add_row(c["name"], c["version"], c["license"], "Oberfläche")
+        console.print(table)
 
 
 @app.command("config")
