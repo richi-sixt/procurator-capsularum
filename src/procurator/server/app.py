@@ -47,6 +47,7 @@ class PlanRequest(BaseModel):
     params: dict[str, Any] = {}
     force_unique: bool = False
     order: list[str] | None = None  # eigene Reihenfolge (Pfade), z. B. nach Ziehen in der UI
+    confirm_cloud: bool = False  # Nutzer hat bestätigt, dass Daten an einen Cloud-Anbieter gehen
 
 
 class ScanRequest(BaseModel):
@@ -56,6 +57,11 @@ class ScanRequest(BaseModel):
 
 class ApplyRequest(PlanRequest):
     disabled: list[str] = []  # abgewählte Quellpfade
+
+
+class ProposalEditRequest(PlanRequest):
+    path: str
+    target: str
 
 
 class PresetRequest(BaseModel):
@@ -104,6 +110,7 @@ def _serialize(plan: Plan) -> dict[str, Any]:
                 "dstFolder": str(c.dst.parent) if c.dst and c.dst.parent != c.src.parent else None,
                 "folder": str(c.src.parent),
                 "status": c.status.value, "reason": c.reason, "sensitive": c.sensitive,
+                "editable": c.editable,
             }
             for c in plan.changes
         ],
@@ -235,6 +242,9 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
             raise HTTPException(422, str(exc)) from exc
         if not op.needs_analysis:
             raise HTTPException(400, "Diese Aktion braucht keine Analyse")
+        cfg, _warning = cfgmod.load()
+        if op.sends_data and cfg.requires_confirmation and not req.confirm_cloud:
+            raise HTTPException(409, "Für einen Cloud-Anbieter fehlt die Bestätigung vor dem Senden")
         items = _items(req)
         with jobs_lock:
             if any(j.state == "running" for j in jobs.values()):
@@ -247,13 +257,41 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
 
         def run() -> None:
             try:
-                op.analyze(items, progress, job.cancel)
+                op.analyze(items, progress, job.cancel, confirmed=req.confirm_cloud)
                 job.state = "cancelled" if job.cancel.is_set() else "finished"
             except Exception as exc:
                 job.error, job.state = str(exc), "error"
 
         threading.Thread(target=run, daemon=True).start()
         return job.to_dict()
+
+    @app.post("/api/analyze/preview")
+    def analyze_preview(req: PlanRequest) -> dict[str, Any]:
+        """Was würde die Analyse senden? Ohne Aufruf eines Modells und ohne Schreiben."""
+        try:
+            op = build(req.operation, req.params)
+        except ParamError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        info = op.send_preview(_items(req)) if op.sends_data else None
+        return {"needed": info is not None, **(info or {})}
+
+    @app.post("/api/proposals/edit")
+    def edit_proposal(req: ProposalEditRequest) -> dict[str, bool]:
+        """Ein Ziel in der Vorschau von Hand ändern. Gleiche Sicherheitsprüfung wie beim Modell."""
+        try:
+            op = build(req.operation, req.params)
+        except ParamError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        path = Path(req.path)
+        if not path.is_absolute() or not path.is_file():
+            raise HTTPException(400, f"Datei existiert nicht: {req.path}")
+        try:
+            op.edit_target(path, req.target)
+        except NotImplementedError as exc:
+            raise HTTPException(400, "Diese Aktion kennt keine manuellen Ziele") from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return {"ok": True}
 
     @app.get("/api/jobs/{job_id}")
     def job_status(job_id: str) -> dict[str, Any]:

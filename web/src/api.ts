@@ -1,5 +1,5 @@
 import type {
-  Batch, Browse, Config, ConfigResponse, Job, ProbeResult, OperationSpec, Params, PlanResponse, Preset,
+  Batch, Browse, Config, ConfigResponse, Job, ProbeResult, SendPreview, OperationSpec, Params, PlanResponse, Preset,
 } from './types'
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -25,6 +25,7 @@ export type PlanInput = {
   params: Params
   force_unique: boolean
   order: string[] | null
+  confirm_cloud?: boolean
 }
 
 const post = (body: unknown, signal?: AbortSignal): RequestInit => ({
@@ -40,6 +41,9 @@ export const api = {
   apply: (input: PlanInput, disabled: string[]) =>
     call<Job>('/apply', post({ ...input, disabled })),
   analyze: (input: PlanInput) => call<Job>('/analyze', post(input)),
+  analyzePreview: (input: PlanInput) => call<SendPreview>('/analyze/preview', post(input)),
+  editProposal: (input: PlanInput, path: string, target: string) =>
+    call<{ ok: boolean }>('/proposals/edit', post({ ...input, path, target })),
   job: (id: string) => call<Job>(`/jobs/${id}`),
   cancelJob: (id: string) => call<{ ok: boolean }>(`/jobs/${id}/cancel`, { method: 'POST' }),
   history: () => call<Batch[]>('/history'),

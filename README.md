@@ -15,6 +15,7 @@ auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. E
 | **Verschieben** | In einen anderen Ordner, flach oder mit nachgebauter Ordnerstruktur. Zielordner werden angelegt, auch auf ein anderes Laufwerk |
 | **Konvertieren** | CBR → CBZ (Seiten bleiben bitidentisch), Bilder (JPG, PNG, WebP, HEIC, TIFF, BMP → JPG, PNG, WebP, optional verkleinern) |
 | **Dubletten** | Findet gleiche Dateien über ihren Inhalt und verschiebt alle bis auf eine in einen Ordner `_Dubletten`, nichts wird gelöscht. Ein lokaler Datei-Index sorgt dafür, dass so wenig wie möglich gelesen wird |
+| **KI-Vorschläge** | Ein Sprachmodell schlägt Ordner und bessere Dateinamen vor, du prüfst und korrigierst in der Vorschau. Standardmässig mit einem lokalen Modell ([Ollama](https://ollama.com/)), optional mit Claude. Sensible Dateien werden nie gesendet |
 | **Sicherheit** | Konflikterkennung (gleiche Zielnamen, vorhandene Dateien werden nie überschrieben), Verlauf mit Rückgängig, sensible Dateien werden markiert |
 | **Oberfläche** | Vorschau-Tabelle mit Checkbox pro Zeile, Fortschritt und Abbrechen bei langen Läufen, gespeicherte Einstellungen |
 
@@ -25,7 +26,8 @@ Konvertierungen erzeugen neue Dateien, die Originale bleiben unverändert.
 - [Python](https://www.python.org/) 3.11 oder neuer und [uv](https://docs.astral.sh/uv/)
 - [Node.js](https://nodejs.org/) 20.19 oder neuer (oder 22.12 oder neuer), nur um die Web-Oberfläche zu bauen
 - Optional: [unar](https://theunarchiver.com/command-line) für CBR/RAR (macOS: `brew install unar`)
-- Optional: [Ollama](https://ollama.com/) für die geplanten KI-Vorschläge. Sie sind noch nicht gebaut, die Verbindung lässt sich aber schon testen
+- Optional: [Ollama](https://ollama.com/) mit einem heruntergeladenen Modell für die KI-Vorschläge (`ollama pull gemma4:e2b`)
+- Optional: für Claude als Cloud-Modell `uv sync --extra claude` und die Umgebungsvariable `ANTHROPIC_API_KEY`
 
 ## Installation und Start
 
@@ -66,6 +68,8 @@ uv run pc convert cbr2cbz QUELLE --to ZIEL --apply
 uv run pc convert images ORDNER --to ZIEL --format webp --max-edge 1600 --apply
 uv run pc duplicates ORDNER                    # gleiche Dateien anzeigen
 uv run pc duplicates ORDNER --move             # Kopien verschieben (Vorschau, mit --apply ausführen)
+uv run pc organize ORDNER                      # KI-Vorschläge für Ordner und Namen (Vorschau)
+uv run pc organize ORDNER --hint "Dokumente nach Jahr" --apply
 uv run pc history
 uv run pc undo
 ```
@@ -109,12 +113,22 @@ Dateien zeigen).
 - **Verschoben, nicht gelöscht:** Die Kopien landen in `_Dubletten` im gewählten Ordner (oder in einem Zielordner deiner Wahl), mit nachgebauter Ordnerstruktur. Löschen kannst du sie danach selbst. «Rückgängig» holt sie zurück.
 - Mehrere gewählte Ordner werden miteinander verglichen. Hardlinks und Symlinks gelten nicht als Kopien, leere Dateien auch nicht.
 
+### KI-Vorschläge im Detail
+
+- **Zwei Schritte:** «Analysieren» befragt das Modell (im Hintergrund, mit Fortschritt und Abbrechen) und speichert die Vorschläge lokal. Die Vorschau liest nur diese gespeicherten Vorschläge, sie ruft das Modell nie auf. Bekannte, unveränderte Dateien werden nicht erneut gefragt.
+- **Du behältst die Kontrolle:** Jede Zeile hat eine Checkbox, und das Ziel lässt sich mit ✎ von Hand ändern (`Ordner/Name`). Danach «Rückgängig» wie bei jeder Aktion. Ein leerer Ordnervorschlag lässt die Datei, wo sie liegt.
+- **Vorschläge werden geprüft, bevor sie gelten:** Ein Pfad ausserhalb des gewählten Ordners, absolute Pfade, `..`, versteckte Ordner und eine geänderte Dateiendung werden nie übernommen. Unbrauchbare Vorschläge erscheinen als Fehler und werden nicht ausgeführt.
+- **Was gesendet wird, bestimmt die Datenschutzstufe** (Einstellungen): Stufe 0 nur Dateiname, Endung, Grösse und Datum. Stufe 1 zusätzlich die Ordnernamen. Stufe 2 zusätzlich einen kurzen Textauszug aus einfachen Textdateien (`.txt`, `.md`, `.csv` und ähnliche).
+- **Sensible Dateien gehen nicht ans Modell**, auch ihre Namen nicht. Nur bei einem lokalen Modell lässt sich das in den Einstellungen bewusst abschalten.
+- **Cloud nur mit Bestätigung:** Bei Claude zeigt ein Dialog vor jedem Lauf, was gesendet würde (Anzahl, Stufe, erste Einträge). Auf der Kommandozeile fragt `pc organize` nach oder verlangt `--yes-cloud`.
+- **Die Qualität hängt vom Modell ab.** Kleine lokale Modelle ordnen grob richtig, liegen aber gelegentlich daneben, und ihre «Sicherheit» sagt wenig aus. Mit «Eigene Anweisung» (`--hint`) lässt sich das Ergebnis steuern.
+
 ## Datenschutz und Sicherheit
 
 - Der Server hört nur auf `127.0.0.1`, prüft den Host-Header und erlaubt keine fremden Webseiten (kein CORS).
 - Der Browser schickt nie fertige Zielnamen, nur Parameter. Der Server berechnet den Plan beim Ausführen neu.
-- Es werden keine Daten ins Internet gesendet. Die geplante KI-Anbindung nutzt standardmässig ein lokales Modell (Ollama). Bei einem Cloud-Anbieter braucht jeder Lauf eine Freigabe.
-- **Sensible Dateien** (Schlüsselwörter wie Pass, Steuer, Konto oder Endungen wie `.pem`) werden in der Vorschau mit 🔒 markiert und würden nie an ein Cloud-Modell gesendet. Die Listen sind in den Einstellungen änderbar.
+- Ohne KI-Vorschläge werden keine Daten ins Internet gesendet. Die KI-Vorschläge nutzen standardmässig ein lokales Modell (Ollama), dabei verlassen die Daten den Rechner nicht. Bei einem Cloud-Anbieter (Claude) braucht jeder Lauf eine Bestätigung.
+- **Sensible Dateien** (Schlüsselwörter wie Pass, Steuer, Konto oder Endungen wie `.pem`) werden in der Vorschau mit 🔒 markiert und nie an ein Cloud-Modell gesendet. Die Listen sind in den Einstellungen änderbar.
 - **Schlüssel stehen nie in einer Datei.** Für Claude wird nur der Name der Umgebungsvariable gespeichert.
 
 ### Wo Daten liegen
@@ -147,6 +161,7 @@ src/procurator/
   fsops.py  journal.py     sicheres Verschieben, Verlauf und Rückgängig (SQLite)
   index.py                 Datei-Index und Dubletten
   config.py  privacy.py    Konfiguration, sensible Dateien
+  ai/                      KI-Anbindung: Anbieter (Ollama, Claude), Vorschläge, Prüfung der Antworten
   server/                  FastAPI-Server (nur lokal)
   cli.py                   Kommandozeile `pc`
 web/                       React-Oberfläche (Vite, TypeScript)
@@ -168,12 +183,13 @@ Konflikterkennung und Rückgängig funktionieren deshalb für jede Operation gle
 - Nur unter macOS getestet. Linux funktioniert vermutlich, Windows ist ungetestet.
 - Die Vorschau-Tabelle ist nicht virtualisiert und wird bei Zehntausenden Dateien langsam.
 - Ein Undo, das nur teilweise gelingt, lässt sich nicht wiederholen.
-- Die KI-Vorschläge zum Ordnen sind noch nicht gebaut.
+- KI-Vorschläge: Die Ollama-Anbindung ist mit einem echten Modell getestet. Die Claude-Anbindung ist automatisch nur mit simulierten Antworten getestet und vom Autor einmal von Hand mit der echten API ausprobiert. Messungen zur Geschwindigkeit stehen noch aus.
+- Stufe 2 der Datenschutzstufen liest nur einfache Textdateien, keine PDFs oder Office-Dokumente.
+- Manche Ollama-Runner (zum Beispiel MLX) unterstützen kein erzwungenes Antwortformat. Dann liest das Programm die Antwort tolerant, was etwas fehleranfälliger ist.
 
 ## Geplant
 
-KI-Vorschläge zum Ordnen mit einem lokalen Modell, PDF → Markdown, EPUB-Konvertierung und eine
-Desktop-App.
+PDF → Markdown, EPUB-Konvertierung und eine Desktop-App.
 
 ## Lizenz
 

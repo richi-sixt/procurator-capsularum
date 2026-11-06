@@ -12,11 +12,13 @@ from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
 
 from . import config as cfgmod
+from .ai.providers import ProviderError
 from .engine import apply_plan, make_plan
 from .index import FileIndex
 from .journal import Journal
 from .model import Status
 from .ops import (
+    AiOrganize,
     Append,
     CbrToCbz,
     ChangeCase,
@@ -56,6 +58,20 @@ ShowAll = Annotated[bool, typer.Option("--all", help="Auch übersprungene Dateie
 STYLE = {Status.OK: "green", Status.SKIP: "dim", Status.CONFLICT: "red", Status.ERROR: "red"}
 
 
+def _shorten(dst: Path, roots: list[Path]) -> str:
+    """Pfad relativ zum gewählten Ordner anzeigen, falls er darunter liegt (kürzer und klarer)."""
+    for root in roots:
+        base = root if root.is_dir() else root.parent
+        try:
+            return str(dst.relative_to(base.resolve())) if dst.is_absolute() else str(dst)
+        except ValueError:
+            try:
+                return str(dst.relative_to(base))
+            except ValueError:
+                continue
+    return str(dst)
+
+
 def _run(op: Operation, paths: list[Path], recursive: bool, apply: bool,
          force_unique: bool, show_all: bool) -> None:
     items = scan(paths, recursive=recursive)
@@ -74,7 +90,7 @@ def _run(op: Operation, paths: list[Path], recursive: bool, apply: bool,
             continue
         new = c.dst.name if c.dst else ""
         if c.dst and c.dst.parent != c.src.parent:
-            new = f"{c.dst.parent}/{c.dst.name}"
+            new = _shorten(c.dst, paths)
         note = c.status.value + (f": {c.reason}" if c.reason else "")
         if c.sensitive:
             note += f" · sensibel ({c.sensitive})"
@@ -86,6 +102,11 @@ def _run(op: Operation, paths: list[Path], recursive: bool, apply: bool,
         f"{counts[Status.OK]} bereit, {counts[Status.SKIP]} übersprungen, "
         f"{counts[Status.CONFLICT]} Konflikte, {counts[Status.ERROR]} Fehler"
     )
+    if plan.info.get("withheld"):
+        console.print(f"[dim]{plan.info['withheld']} sensible Dateien wurden nicht an das Modell "
+                      "gesendet.[/dim]")
+    if plan.operation == "ai_organize" and plan.info.get("pendingFiles"):
+        console.print(f"[yellow]{plan.info['pendingFiles']} Dateien sind noch nicht analysiert.[/yellow]")
     if "duplicates" in plan.info:
         i = plan.info
         n, g = i["duplicates"], i["groups"]
@@ -103,7 +124,8 @@ def _run(op: Operation, paths: list[Path], recursive: bool, apply: bool,
             console.print(f"[dim][{done + 1}/{total}] {name}[/dim]")
 
     verb = "konvertiert" if plan.kind == "convert" else (
-        "verschoben" if plan.operation in ("move", "duplicates") else "umbenannt")
+        "verschoben" if plan.operation in ("move", "duplicates") else
+        "angewendet" if plan.operation == "ai_organize" else "umbenannt")
     result = apply_plan(plan, Journal(), progress)
     console.print(f"[green]{len(result.done)} {verb}[/green]"
                   + (f" (Lauf {result.batch_id}, rückgängig mit `pc undo`)" if result.batch_id else ""))
@@ -297,6 +319,41 @@ def move_files(
 ) -> None:
     """Dateien in einen anderen Ordner verschieben (auch auf ein anderes Laufwerk)."""
     _run(MoveToFolder(to, keep_structure), paths, recursive, apply, force_unique, show_all)
+
+
+@app.command()
+def organize(
+    paths: Paths, recursive: Recursive = True,
+    mode: Annotated[str, typer.Option(help="both (Ordner und Namen), folders oder names")] = "both",
+    hint: Annotated[str, typer.Option("--hint", help="Eigene Anweisung für das Modell")] = "",
+    depth: Annotated[int, typer.Option(min=1, max=5, help="Höchste Ordnertiefe")] = 3,
+    reanalyze: Annotated[bool, typer.Option("--reanalyze", help="Bekannte Vorschläge neu berechnen")] = False,
+    yes_cloud: Annotated[bool, typer.Option("--yes-cloud", help="Senden an einen Cloud-Anbieter bestätigen")] = False,
+    apply: Apply = False, force_unique: Unique = False, show_all: ShowAll = False,
+) -> None:
+    """Ein Sprachmodell schlägt Ordner und Namen vor (Vorschau, mit --apply ausführen)."""
+    if mode not in ("both", "folders", "names"):
+        raise typer.BadParameter("mode muss both, folders oder names sein")
+    items = scan(paths, recursive=recursive)
+    op = AiOrganize(mode, hint, depth, reanalyze)  # type: ignore[arg-type]
+    info = op.send_preview(items) or {}
+    where = "Cloud" if info.get("isCloud") else "lokal"
+    console.print(f"Modell: {info.get('provider')} · {info.get('model')} ({where}). "
+                  f"Datenschutzstufe {info.get('privacyLevel')}: {info.get('privacyText')}.")
+    console.print(f"{info.get('files', 0)} Dateien würden gesendet, {info.get('withheld', 0)} sensible "
+                  f"bleiben zurück, {info.get('cached', 0)} sind schon bekannt.")
+    if info.get("files"):
+        if info.get("needsConfirmation") and not yes_cloud:
+            console.print("[yellow]Diese Angaben verlassen den Rechner:[/yellow]")
+            for row in info.get("sample", []):
+                console.print(f"  {row}")
+            typer.confirm("An den Cloud-Anbieter senden?", abort=True)
+        try:
+            _with_progress(lambda cb: op.analyze(items, cb, confirmed=True))
+        except ProviderError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(1) from exc
+    _run(op, paths, recursive, apply, force_unique, show_all)
 
 
 @app.command()

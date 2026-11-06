@@ -17,6 +17,7 @@ export type OperationSpec = {
   group: string
   kind: 'move' | 'convert'
   needsAnalysis?: boolean
+  sendsData?: boolean
   description: string
   fields: Field[]
 }
@@ -33,6 +34,7 @@ export type Change = {
   status: Status
   reason: string
   sensitive?: string
+  editable?: string | null
 }
 
 export type PlanResponse = {
@@ -90,3 +92,18 @@ export type ConfigResponse = {
   path: string
 }
 export type ProbeResult = { ok: boolean; message: string; models: string[]; provider: string }
+
+export type SendPreview = {
+  needed: boolean
+  provider?: string
+  model?: string
+  isCloud?: boolean
+  privacyLevel?: number
+  privacyText?: string
+  files?: number
+  withheld?: number
+  cached?: number
+  batches?: number
+  sample?: Record<string, unknown>[]
+  needsConfirmation?: boolean
+}

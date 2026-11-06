@@ -10,6 +10,7 @@ from .base import Operation
 from .convert import CbrToCbz, ConvertImages
 from .dedupe import MoveDuplicates
 from .move import MoveToFolder
+from .organize import AiOrganize
 from .rename import (
     Append,
     ChangeCase,
@@ -53,6 +54,7 @@ class OperationSpec:
             "description": self.description,
             "kind": self.cls.kind,
             "needsAnalysis": self.cls.needs_analysis,
+            "sendsData": self.cls.sends_data,
             "fields": [
                 {
                     "key": f.key, "label": f.label, "type": f.type, "default": f.default,
@@ -145,6 +147,15 @@ SPECS += [
         Field("keep_structure", "Ordnerstruktur beibehalten", "bool", False,
               help="Aus: alle Dateien direkt in den Zielordner. Ein: Unterordner werden nachgebaut."),
     ], "Verschiebt Dateien, der Name bleibt gleich. Rückgängig macht den Lauf zurück."),
+    OperationSpec("ai_organize", "KI-Vorschläge (ordnen und benennen)", "Organisieren", AiOrganize, [
+        Field("mode", "Was soll vorgeschlagen werden?", "select", "both",
+              [("both", "Ordner und Namen"), ("folders", "Nur Ordner"), ("names", "Nur Namen")]),
+        Field("hint", "Eigene Anweisung (optional)", "text", "",
+              help="Zum Beispiel: Dokumente nach Jahr und Art ordnen. Bis 500 Zeichen."),
+        Field("max_depth", "Höchste Ordnertiefe", "number", 3),
+        Field("reanalyze", "Vorhandene Vorschläge neu berechnen", "bool", False,
+              help="Sonst werden schon bekannte Dateien nicht noch einmal gefragt."),
+    ], "Ein Sprachmodell schlägt Ordner und Namen vor, du prüfst und korrigierst in der Vorschau."),
     OperationSpec("duplicates", "Dubletten verschieben", "Organisieren", MoveDuplicates, [
         Field("keep", "Welche Datei bleibt?", "select", "oldest",
               [("oldest", "Die älteste"), ("newest", "Die neueste"),

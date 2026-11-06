@@ -66,6 +66,9 @@ def make_plan(
             continue
         try:
             new_name = op.transform(item, index)
+        except ValueError as exc:  # Meldung ist für den Nutzer gedacht (zum Beispiel unsicherer Pfad)
+            plan.changes.append(PlannedChange(src, None, Status.ERROR, str(exc)))
+            continue
         except Exception as exc:  # fehlerhafte Eingabe, z. B. ungültiger Regex
             plan.changes.append(PlannedChange(src, None, Status.ERROR, f"{type(exc).__name__}: {exc}"))
             continue
@@ -97,6 +100,11 @@ def make_plan(
         _resolve_conflicts(plan, force_unique)
     plan.info = op.info()
     plan.needs_analysis = op.needs_analysis
+    by_path = {item.path: item for item in items}
+    for c in plan.changes:
+        item = by_path.get(c.src)
+        if item is not None:
+            c.editable = op.editable_target(item)
     if sensitive is not None:  # nur eine Markierung, der Status bleibt unverändert
         hits = {item.path: sensitive.match(item) for item in items}
         for c in plan.changes:

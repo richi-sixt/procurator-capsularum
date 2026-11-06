@@ -37,6 +37,13 @@ class SensitiveRules:
         )
         object.__setattr__(self, "_pattern", pattern)
 
+    def match_text(self, text: str) -> str:
+        """Prüft einen einzelnen Namen (zum Beispiel einen Ordnernamen) gegen die Schlüsselwörter."""
+        if self._pattern is None:
+            return ""
+        m = self._pattern.search(_norm(text))
+        return m.group(0) if m else ""
+
     def match(self, item: FileItem) -> str:
         """Gibt den Treffer (Schlüsselwort oder Endung) zurück, sonst einen leeren Text."""
         if item.suffix.lower() in {e.lower() for e in self.extensions}:

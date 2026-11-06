@@ -2,6 +2,7 @@ from .base import Operation
 from .convert import CbrToCbz, ConvertImages
 from .dedupe import MoveDuplicates
 from .move import MoveToFolder
+from .organize import AiOrganize
 from .rename import (
     Append,
     ChangeCase,
@@ -16,6 +17,7 @@ from .rename import (
 )
 
 __all__ = [
+    "AiOrganize",
     "Append",
     "CbrToCbz",
     "ChangeCase",

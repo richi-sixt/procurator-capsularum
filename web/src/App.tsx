@@ -4,8 +4,9 @@ import FolderPicker from './components/FolderPicker'
 import HistoryPanel from './components/HistoryPanel'
 import OperationForm, { defaults, missingRequired } from './components/OperationForm'
 import PreviewTable from './components/PreviewTable'
+import SendDialog from './components/SendDialog'
 import SettingsDialog from './components/SettingsDialog'
-import type { Job, OperationSpec, Params, PlanResponse, Preset } from './types'
+import type { Job, OperationSpec, Params, PlanResponse, Preset, SendPreview } from './types'
 
 const human = (n: number) => {
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -33,6 +34,7 @@ export default function App() {
   const [picker, setPicker] = useState(false)
   const [history, setHistory] = useState(false)
   const [settings, setSettings] = useState(false)
+  const [sendInfo, setSendInfo] = useState<SendPreview | null>(null) // Bestätigung vor dem Senden
   const [job, setJob] = useState<Job | null>(null) // laufender Auftrag
   const [jobKind, setJobKind] = useState<'apply' | 'analyze'>('apply')
   const [refresh, setRefresh] = useState(0)
@@ -116,7 +118,7 @@ export default function App() {
     setNotice(''); setError(''); setJobKind('apply')
     try {
       const current = await track(await api.apply(input, [...disabled]))
-      const verb = spec?.kind === 'convert' ? 'konvertiert' : (opName === 'move' || opName === 'duplicates') ? 'verschoben' : 'umbenannt'
+      const verb = spec?.kind === 'convert' ? 'konvertiert' : (opName === 'move' || opName === 'duplicates') ? 'verschoben' : opName === 'ai_organize' ? 'angewendet' : 'umbenannt'
       if (current.state === 'error') setError(current.error)
       else setNotice(
         `${current.ok} ${verb}${current.state === 'cancelled' ? ' (abgebrochen)' : ''}` +
@@ -130,18 +132,36 @@ export default function App() {
   }
 
   // Langsamer Vorbereitungsschritt (zum Beispiel Dateien für die Dublettensuche lesen)
-  const analyze = async () => {
-    setNotice(''); setError(''); setJobKind('analyze')
+  const analyze = async (confirmCloud = false) => {
+    setNotice(''); setError(''); setJobKind('analyze'); setSendInfo(null)
     try {
-      const current = await track(await api.analyze(input))
+      const current = await track(await api.analyze({ ...input, confirm_cloud: confirmCloud }))
       if (current.state === 'error') setError(current.error)
       else setNotice(current.state === 'cancelled'
         ? 'Analyse abgebrochen. Was schon gelesen ist, bleibt gespeichert, du kannst später weitermachen.'
         : 'Analyse fertig.')
+      if (params.reanalyze) setParams((cur) => ({ ...cur, reanalyze: false })) // «Neu berechnen» gilt nur einmal
       setRefresh((n) => n + 1)
     } catch (e) {
       setError((e as Error).message)
     } finally { setJob(null) }
+  }
+
+  // Bei Cloud zuerst zeigen, was gesendet würde. Lokal geht es direkt los.
+  const startAnalysis = async () => {
+    if (plan?.info?.requiresConfirmation) {
+      try { setSendInfo(await api.analyzePreview(input)) } catch (e) { setError((e as Error).message) }
+    } else {
+      await analyze(false)
+    }
+  }
+
+  const editTarget = async (src: string, text: string) => {
+    setError('')
+    try {
+      await api.editProposal(input, src, text)
+      setRefresh((n) => n + 1)
+    } catch (e) { setError((e as Error).message) }
   }
 
   const cancel = () => { if (job) void api.cancelJob(job.id) }
@@ -255,10 +275,14 @@ export default function App() {
             ) : Number(plan.info?.pendingFiles ?? 0) > 0 ? (
               <div className="banner">
                 <span>
-                  Für die Suche müssen noch <strong>{Number(plan.info?.pendingFiles)}</strong> Dateien gelesen werden
-                  (etwa {human(Number(plan.info?.pendingBytes ?? 0))}). Schon bekannte Dateien werden nicht erneut gelesen.
+                  {typeof plan.info?.analysisHint === 'string' ? plan.info.analysisHint : (
+                    <>
+                      Für die Suche müssen noch <strong>{Number(plan.info?.pendingFiles)}</strong> Dateien gelesen werden
+                      (etwa {human(Number(plan.info?.pendingBytes ?? 0))}). Schon bekannte Dateien werden nicht erneut gelesen.
+                    </>
+                  )}
                 </span>
-                <button className="primary" onClick={() => void analyze()} disabled={busy}>Analysieren</button>
+                <button className="primary" onClick={() => void startAnalysis()} disabled={busy}>Analysieren</button>
               </div>
             ) : null
           )}
@@ -278,7 +302,7 @@ export default function App() {
                   disabled={disabled}
                   onToggle={(s) => setDisabled((d) => { const n = new Set(d); if (n.has(s)) n.delete(s); else n.add(s); return n })}
                   onToggleAll={(on) => setDisabled(on ? new Set() : new Set(plan.changes.filter((c) => c.status === 'ok').map((c) => c.src)))}
-                  draggable={sortCustom} onReorder={setOrder} />
+                  draggable={sortCustom} onReorder={setOrder} onEdit={opName === 'ai_organize' ? editTarget : undefined} />
               </div>
               {!listing && <div className="actionbar">
                 <span className="muted">{runnable} von {counts?.ok ?? 0} ausgewählt</span>
@@ -290,7 +314,7 @@ export default function App() {
                   </>
                 ) : (
                   <button className="primary" disabled={runnable === 0 || busy} onClick={() => void apply()}>
-                    {`${runnable} Dateien ${spec?.kind === 'convert' ? 'konvertieren' : (opName === 'move' || opName === 'duplicates') ? 'verschieben' : 'umbenennen'}`}
+                    {`${runnable} Dateien ${spec?.kind === 'convert' ? 'konvertieren' : (opName === 'move' || opName === 'duplicates') ? 'verschieben' : opName === 'ai_organize' ? 'anwenden' : 'umbenennen'}`}
                   </button>
                 )}
               </div>}
@@ -304,6 +328,7 @@ export default function App() {
         <a href="https://github.com/richi-sixt/procurator-capsularum" target="_blank" rel="noreferrer">Quellcode</a>
       </footer>
 
+      {sendInfo && <SendDialog info={sendInfo} onCancel={() => setSendInfo(null)} onConfirm={() => void analyze(true)} />}
       {picker && <FolderPicker start={paths[paths.length - 1]} onClose={() => setPicker(false)}
         onPick={(p) => { addPath(p); setPicker(false) }} />}
       {settings && <SettingsDialog onClose={() => { setSettings(false); setRefresh((n) => n + 1) }} />}

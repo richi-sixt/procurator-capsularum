@@ -46,6 +46,7 @@ class PlannedChange:
     reason: str = ""
     enabled: bool = True  # Checkbox in der Vorschau
     sensitive: str = ""  # Treffer der Erkennung sensibler Dateien (leer = unauffällig)
+    editable: str | None = None  # Ziel als Text, wenn es in der Vorschau geändert werden darf
 
     @property
     def will_run(self) -> bool:

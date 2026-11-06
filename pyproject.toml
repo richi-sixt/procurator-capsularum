@@ -20,8 +20,14 @@ dependencies = [
 [project.scripts]
 pc = "procurator.cli:app"
 
+[project.optional-dependencies]
+claude = [
+    "anthropic>=2.6.0",
+]
+
 [dependency-groups]
 dev = [
+    "anthropic>=2.6.0",
     "httpx>=0.28.1",
     "pytest>=8.0.0",
     "ruff>=0.9.2",

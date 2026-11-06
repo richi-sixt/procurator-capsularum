@@ -85,3 +85,7 @@ textarea { font: inherit; color: inherit; background: var(--surface); border: 1p
 
 .banner { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; background: var(--dim-bg); border: 1px solid var(--border); border-radius: 8px; padding: .6rem .8rem; margin: .6rem 0; }
 .banner > span:first-child { flex: 1 1 18rem; }
+
+.edit-btn { margin-left: .4rem; font-size: .9rem; }
+.preview input.edit { width: 100%; }
+.sample { background: var(--dim-bg); border-radius: 6px; padding: .6rem; font-size: .75rem; overflow: auto; max-height: 10rem; white-space: pre-wrap; word-break: break-all; }

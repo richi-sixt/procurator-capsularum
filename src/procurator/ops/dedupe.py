@@ -182,6 +182,7 @@ class MoveDuplicates(Operation):
         items: list[FileItem],
         on_progress: Callable[[int, int, str], None] | None = None,
         cancel: threading.Event | None = None,
+        confirmed: bool = False,
     ) -> None:
         FileIndex().duplicates(
             self._candidates(items), min_size=self._min_bytes(),

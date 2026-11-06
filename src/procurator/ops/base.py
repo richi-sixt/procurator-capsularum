@@ -18,6 +18,7 @@ class Operation(ABC):
     name: ClassVar[str]
     kind: ClassVar[str] = "move"  # "move" (umbenennen) oder "convert" (neue Datei erzeugen)
     needs_analysis: ClassVar[bool] = False  # braucht einen eigenen, langsamen Vorbereitungsschritt
+    sends_data: ClassVar[bool] = False  # schickt Dateiangaben an ein Sprachmodell
 
     def params(self) -> dict[str, Any]:
         return asdict(self) if is_dataclass(self) else {}  # type: ignore[call-overload]
@@ -65,7 +66,23 @@ class Operation(ABC):
         items: list[FileItem],
         on_progress: Callable[[int, int, str], None] | None = None,
         cancel: threading.Event | None = None,
+        confirmed: bool = False,
     ) -> None:
-        """Langsamer Vorbereitungsschritt (nur wenn `needs_analysis`), läuft als Hintergrund-Job."""
+        """Langsamer Vorbereitungsschritt (nur wenn `needs_analysis`), läuft als Hintergrund-Job.
+
+        `confirmed`: der Nutzer hat bestätigt, dass Daten den Rechner verlassen (nur Cloud).
+        """
+        raise NotImplementedError
+
+    def send_preview(self, items: list[FileItem]) -> dict[str, Any] | None:
+        """Was würde die Analyse an ein Modell senden? Nur für Operationen mit `sends_data`."""
+        return None
+
+    def editable_target(self, item: FileItem) -> str | None:
+        """Aktuelles Ziel als Text, wenn der Nutzer es in der Vorschau von Hand ändern darf."""
+        return None
+
+    def edit_target(self, path: Path, target: str) -> None:
+        """Von Hand geändertes Ziel speichern (zusammen mit `editable_target`)."""
         raise NotImplementedError
 

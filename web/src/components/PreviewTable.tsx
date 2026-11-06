@@ -11,12 +11,15 @@ type Props = {
   onToggleAll: (enable: boolean) => void
   draggable: boolean
   onReorder: (srcs: string[]) => void
+  onEdit?: (src: string, text: string) => Promise<void> // Ziel von Hand ändern (KI-Vorschläge)
 }
 
 const LABEL: Record<Status, string> = { ok: 'Bereit', skip: 'Übersprungen', conflict: 'Konflikt', error: 'Fehler' }
 
 export default function PreviewTable(p: Props) {
   const [dragging, setDragging] = useState<string | null>(null)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
   const rows = p.showSkipped ? p.changes : p.changes.filter((c) => c.status !== 'skip')
   const okRows = p.changes.filter((c) => c.status === 'ok')
   const allOn = okRows.length > 0 && okRows.every((c) => !p.disabled.has(c.src))
@@ -27,6 +30,13 @@ export default function PreviewTable(p: Props) {
     srcs.splice(srcs.indexOf(target), 0, dragging)
     p.onReorder(srcs)
     setDragging(null)
+  }
+
+  const startEdit = (c: Change) => { setEditing(c.src); setDraft(c.editable ?? '') }
+  const saveEdit = async (c: Change) => {
+    const text = draft.trim()
+    setEditing(null)
+    if (text && text !== c.editable && p.onEdit) await p.onEdit(c.src, text)
   }
 
   return (
@@ -62,8 +72,24 @@ export default function PreviewTable(p: Props) {
                 {c.sensitive && <span className="badge sensitive" title={`Sensibel (Treffer: ${c.sensitive}). Wird nie an ein KI-Modell gesendet.`}>🔒 sensibel</span>}
                 {p.showFolder && <div className="muted small">{c.folder}</div>}
               </td>
-              <td className="new">{p.listing ? '' : (c.dstName ?? '–')}
-                {!p.listing && c.dstFolder && <div className="muted small">{c.dstFolder}</div>}</td>
+              <td className="new">
+                {editing === c.src ? (
+                  <input autoFocus className="edit" value={draft} spellCheck={false}
+                    aria-label={`Ziel für ${c.srcName}`}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') void saveEdit(c); if (e.key === 'Escape') setEditing(null) }}
+                    onBlur={() => void saveEdit(c)} />
+                ) : (
+                  <>
+                    {p.listing ? '' : (c.dstName ?? '–')}
+                    {!p.listing && c.dstFolder && <div className="muted small">{c.dstFolder}</div>}
+                    {!p.listing && p.onEdit && c.editable != null && (
+                      <button className="link edit-btn" aria-label={`Ziel für ${c.srcName} ändern`}
+                        title="Ziel ändern (Ordner/Name)" onClick={() => startEdit(c)}>✎</button>
+                    )}
+                  </>
+                )}
+              </td>
               <td>{!p.listing && <span className={`badge ${c.status}`}>{LABEL[c.status]}</span>}
                 {c.reason && <div className="muted small">{c.reason}</div>}</td>
             </tr>
