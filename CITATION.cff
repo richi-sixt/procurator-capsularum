@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "Wenn du Procurator Capsularum verwendest oder darauf aufbaust, nenne bitte die Autorin."
+title: "Procurator Capsularum"
+type: software
+abstract: >-
+  Dateien umbenennen, verschieben und konvertieren, mit Vorschau vor jeder
+  Aktion und Rückgängig für jeden Lauf.
+authors:
+  - family-names: Sixt
+    given-names: Rüchan
+license: AGPL-3.0-or-later
+repository-code: "https://github.com/richi-sixt/procurator-capsularum"
+version: 0.1.0

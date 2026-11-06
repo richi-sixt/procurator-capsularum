@@ -308,6 +308,7 @@ def serve(
             console.print("[yellow]Die Web-Oberfläche ist noch nicht gebaut: "
                           "cd web && npm install && npm run build[/yellow]")
         console.print(f"Procurator Capsularum läuft auf http://127.0.0.1:{port}")
+        console.print("[dim]© 2026 Rüchan Sixt, AGPL-3.0-or-later, ohne jede Gewährleistung.[/dim]")
         uvicorn.run(web_app, host="127.0.0.1", port=port)
 
 

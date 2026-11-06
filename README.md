@@ -7,8 +7,7 @@ Aktion wählen, in einer Vorschau prüfen, was passieren würde, und erst dann a
 auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. Eine Desktop-App ist geplant.
 
 > **Stand:** frühe Version (0.1), in Entwicklung. Entwickelt und getestet unter macOS. Mach vor dem ersten
-> Einsatz auf wichtigen Daten ein Backup und lies immer die Vorschau. Was als Nächstes kommt, steht in
-> [Vision.md](Vision.md).
+> Einsatz auf wichtigen Daten ein Backup und lies immer die Vorschau.
 
 ## Was es kann
 
@@ -161,15 +160,19 @@ Konflikterkennung und Rückgängig funktionieren deshalb für jede Operation gle
 
 - Nur unter macOS getestet. Linux funktioniert vermutlich, Windows ist ungetestet.
 - Die Vorschau-Tabelle ist nicht virtualisiert und wird bei Zehntausenden Dateien langsam.
-- CBR → CBZ ist mit einem ZIP im CBR-Gewand und mit defekten Archiven getestet. Ein erfolgreicher Lauf mit einem echten RAR ist noch nicht automatisch getestet.
 - Ein Undo, das nur teilweise gelingt, lässt sich nicht wiederholen.
 - Die KI-Vorschläge zum Ordnen sind noch nicht gebaut.
 
-## Roadmap
+## Geplant
 
-Die offenen Punkte mit Aufwand und Abhängigkeiten stehen in [Vision.md](Vision.md): Dubletten verschieben,
-KI-Vorschläge mit lokalem Modell, PDF → Markdown, EPUB-Konvertierung, Desktop-App.
+Dubletten verschieben, KI-Vorschläge zum Ordnen mit einem lokalen Modell, PDF → Markdown,
+EPUB-Konvertierung und eine Desktop-App.
 
 ## Lizenz
 
-Noch nicht festgelegt. Bis eine `LICENSE`-Datei im Repository liegt, gelten alle Rechte beim Autor.
+Copyright © 2026 Rüchan Sixt
+
+Dieses Programm steht unter der [GNU Affero General Public License, Version 3 oder neuer](LICENSE)
+(AGPL-3.0-or-later). Du darfst es nutzen, ändern und weitergeben. Gibst du es geändert weiter, oder
+bietest du eine geänderte Version als Dienst über ein Netzwerk an, musst du den Quellcode deiner Änderungen
+unter derselben Lizenz offenlegen und den Copyright-Hinweis erhalten. Es gibt keine Gewährleistung.

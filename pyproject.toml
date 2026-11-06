@@ -1,7 +1,9 @@
 [project]
 name = "procurator-capsularum"
 version = "0.1.0"
-description = "Dateien umbenennen und konvertieren, mit Vorschau vor jeder Aktion."
+description = "Dateien umbenennen, verschieben und konvertieren, mit Vorschau vor jeder Aktion."
+license = "AGPL-3.0-or-later"
+authors = [{ name = "Rüchan Sixt" }]
 requires-python = ">=3.11"
 dependencies = [
     "typer>=0.16.0",

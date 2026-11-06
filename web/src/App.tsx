@@ -251,6 +251,11 @@ export default function App() {
         </main>
       </div>
 
+      <footer className="legal">
+        Procurator Capsularum · © 2026 Rüchan Sixt · Lizenz: AGPL-3.0-or-later · Ohne jede Gewährleistung ·{' '}
+        <a href="https://github.com/richi-sixt/procurator-capsularum" target="_blank" rel="noreferrer">Quellcode</a>
+      </footer>
+
       {picker && <FolderPicker start={paths[paths.length - 1]} onClose={() => setPicker(false)}
         onPick={(p) => { addPath(p); setPicker(false) }} />}
       {settings && <SettingsDialog onClose={() => { setSettings(false); setRefresh((n) => n + 1) }} />}
