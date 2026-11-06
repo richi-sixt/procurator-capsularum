@@ -1,5 +1,7 @@
 # Procurator Capsularum
 
+[![CI](https://github.com/richi-sixt/procurator-capsularum/actions/workflows/ci.yml/badge.svg)](https://github.com/richi-sixt/procurator-capsularum/actions/workflows/ci.yml)
+
 Procurator Capsularum bündelt, was man regelmässig mit vielen Dateien und Büchern tut: Ordner wählen,
 Aktion wählen, in einer Vorschau prüfen, was passieren würde, und erst dann ausführen. Alles läuft lokal
 auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. Eine Desktop-App ist geplant.
