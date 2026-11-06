@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 import pytest
@@ -39,3 +40,20 @@ def journal(tmp_path: Path) -> Journal:
 @pytest.fixture
 def items(folder: Path):
     return lambda **kw: scan(folder, **kw)
+
+
+@pytest.fixture(autouse=True)
+def _pretend_unar_is_installed(monkeypatch):
+    """Tests mit einer ZIP-Datei im CBR-Gewand brauchen kein echtes `unar`, nur dass die Prüfung
+    «Programm vorhanden» besteht. Ist `unar` wirklich installiert, bleibt alles echt (zum Beispiel
+    in CI-Läufen auf Rechnern ohne `unar`)."""
+    real = shutil.which
+    if real("unar") and real("lsar"):
+        return
+
+    def which(cmd, *args, **kwargs):
+        if cmd in ("unar", "lsar"):
+            return f"/usr/bin/{cmd}"  # nur gemeldet, nie gestartet
+        return real(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "which", which)

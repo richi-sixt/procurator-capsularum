@@ -44,7 +44,7 @@ uv sync --locked && uv run ruff check . && uv run pytest -q
 cd web && npm ci && npm run lint && npm run build
 ```
 
-Tests, die `unar` oder `rar` brauchen, werden in CI übersprungen. Der Lint der Oberfläche meldet derzeit
+Ohne `unar` (wie auf den CI-Rechnern) melden die Tests dem Programm, es sei vorhanden (`tests/conftest.py`). Tests, die wirklich `unar` und `rar` brauchen, werden übersprungen. Neue Tests dürfen nicht stillschweigend ein installiertes Programm voraussetzen. Prüfen lässt sich das mit einem PATH ohne dieses Programm. Der Lint der Oberfläche meldet derzeit
 Warnungen, aber keine Fehler. Sie brechen den Job nicht ab.
 
 ## Aufbau
