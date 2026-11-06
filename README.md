@@ -1,7 +1,5 @@
 # Procurator Capsularum
 
-**Dateien umbenennen, verschieben und konvertieren, mit Vorschau vor jeder Aktion und Rückgängig für jeden Lauf.**
-
 Procurator Capsularum bündelt, was man regelmässig mit vielen Dateien und Büchern tut: Ordner wählen,
 Aktion wählen, in einer Vorschau prüfen, was passieren würde, und erst dann ausführen. Alles läuft lokal
 auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. Eine Desktop-App ist geplant.
