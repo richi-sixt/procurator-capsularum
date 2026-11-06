@@ -243,6 +243,7 @@ def test_cli_index_and_duplicates(folder, tmp_path):
     assert "2 unverändert" in out and "0 Hashes" in out
     out = CliRunner().invoke(cli_app, ["duplicates", str(folder)], env=env).output
     assert "1 Gruppen gleicher Dateien" in out and "a.bin" in out and "b.bin" in out
+    assert "--move" in out  # Hinweis auf das Aufräumen
     out = CliRunner().invoke(cli_app, ["index", "--info"], env=env).output
     assert "2 Dateien" in out
 

@@ -77,6 +77,18 @@ class RefreshResult:
 
 
 @dataclass
+class AnalysisState:
+    """Wie viel noch gelesen werden müsste, damit die Dubletten-Suche vollständig ist."""
+
+    files: int = 0
+    bytes: int = 0
+
+    @property
+    def complete(self) -> bool:
+        return self.files == 0
+
+
+@dataclass
 class DuplicateGroup:
     sha256: str
     size: int
@@ -270,6 +282,65 @@ class FileIndex:
                     groups[rows[k]["sha256"]].append(k)
         return self._build_groups(groups, rows, by_key), result
 
+    def duplicates_cached(
+        self, items: Iterable[FileItem], *, min_size: int = 1
+    ) -> tuple[list[DuplicateGroup], AnalysisState]:
+        """Dubletten nur aus dem, was der Index schon weiss. Liest und schreibt nichts.
+
+        Gibt die sicher erkannten Gruppen zurück und wie viel noch zu lesen wäre (`AnalysisState`),
+        damit die Suche vollständig ist. Gedacht für die Vorschau: schnell, ohne Nebenwirkung.
+        Das Lesen selbst macht `duplicates()` (die «Analyse»).
+        """
+        by_key: dict[str, Path] = {}
+        stats: dict[str, os.stat_result] = {}
+        for item in items:
+            if item.path.is_symlink():
+                continue
+            try:
+                st = os.stat(item.path)
+            except OSError:
+                continue
+            key = _key(item.path)
+            by_key[key] = item.path
+            stats[key] = st
+
+        db = self._connect()
+        try:
+            stored = self._rows(db, list(by_key))
+        finally:
+            db.close()
+
+        rows: dict[str, dict[str, Any]] = {}
+        for key, st in stats.items():
+            r = stored.get(key)
+            valid = r is not None and r["size"] == st.st_size and r["mtime_ns"] == st.st_mtime_ns
+            rows[key] = {"size": st.st_size, "dev": st.st_dev, "inode": st.st_ino,
+                         "partial": r["partial"] if valid else None,
+                         "sha256": r["sha256"] if valid else None}
+
+        by_size: dict[int, list[str]] = defaultdict(list)
+        for key, r in rows.items():
+            if r["size"] >= max(min_size, 1):
+                by_size[r["size"]].append(key)
+
+        groups: dict[str, list[str]] = defaultdict(list)
+        pending = AnalysisState()
+        for keys in by_size.values():
+            if len(keys) < 2:
+                continue
+            for k in keys:
+                if rows[k]["sha256"]:
+                    groups[rows[k]["sha256"]].append(k)
+                    continue
+                others = [rows[o] for o in keys if o != k]
+                excluded = rows[k]["partial"] is not None and all(
+                    o["partial"] is not None and o["partial"] != rows[k]["partial"] for o in others
+                )
+                if not excluded:  # Anfang unbekannt oder gleich wie bei einer anderen Datei
+                    pending.files += 1
+                    pending.bytes += rows[k]["size"] if rows[k]["partial"] else PARTIAL_BYTES
+        return self._build_groups(groups, rows, by_key), pending
+
     def _build_groups(
         self, groups: dict[str, list[str]], rows: dict[str, dict[str, Any]], by_key: dict[str, Path]
     ) -> list[DuplicateGroup]:
@@ -300,10 +371,12 @@ class FileIndex:
             chunk = keys[start:start + 500]
             marks = ",".join("?" * len(chunk))
             for r in db.execute(
-                f"SELECT path, size, dev, inode, partial, sha256 FROM files WHERE path IN ({marks})",
+                f"SELECT path, size, dev, inode, partial, sha256, mtime_ns FROM files "
+                f"WHERE path IN ({marks})",
                 chunk,
             ):
-                out[r[0]] = {"size": r[1], "dev": r[2], "inode": r[3], "partial": r[4], "sha256": r[5]}
+                out[r[0]] = {"size": r[1], "dev": r[2], "inode": r[3], "partial": r[4],
+                             "sha256": r[5], "mtime_ns": r[6]}
         return out
 
     # --- Abfragen und Pflege -------------------------------------------------------

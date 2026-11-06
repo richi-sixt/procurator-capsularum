@@ -23,6 +23,7 @@ from .ops import (
     ConvertImages,
     DateStamp,
     InsertChars,
+    MoveDuplicates,
     MoveToFolder,
     Operation,
     Prepend,
@@ -85,6 +86,14 @@ def _run(op: Operation, paths: list[Path], recursive: bool, apply: bool,
         f"{counts[Status.OK]} bereit, {counts[Status.SKIP]} übersprungen, "
         f"{counts[Status.CONFLICT]} Konflikte, {counts[Status.ERROR]} Fehler"
     )
+    if "duplicates" in plan.info:
+        i = plan.info
+        n, g = i["duplicates"], i["groups"]
+        console.print(f"{n} Kopie{'n' if n != 1 else ''} in {g} Gruppe{'n' if g != 1 else ''} "
+                      f"belegen {_human(i['bytes'])}. Sie werden verschoben, nicht gelöscht.")
+        if i.get("pendingFiles"):
+            console.print(f"[yellow]Analyse unvollständig: {i['pendingFiles']} Dateien sind noch nicht "
+                          "gelesen.[/yellow]")
     if not apply:
         console.print("[dim]Nur Vorschau. Mit --apply ausführen.[/dim]")
         return
@@ -94,7 +103,7 @@ def _run(op: Operation, paths: list[Path], recursive: bool, apply: bool,
             console.print(f"[dim][{done + 1}/{total}] {name}[/dim]")
 
     verb = "konvertiert" if plan.kind == "convert" else (
-        "verschoben" if plan.operation == "move" else "umbenannt")
+        "verschoben" if plan.operation in ("move", "duplicates") else "umbenannt")
     result = apply_plan(plan, Journal(), progress)
     console.print(f"[green]{len(result.done)} {verb}[/green]"
                   + (f" (Lauf {result.batch_id}, rückgängig mit `pc undo`)" if result.batch_id else ""))
@@ -402,14 +411,28 @@ def duplicates(
     paths: Paths, recursive: Recursive = True,
     min_size: Annotated[int, typer.Option(help="Kleinere Dateien (in Bytes) ignorieren")] = 1,
     limit: Annotated[int, typer.Option(help="Höchstens so viele Gruppen anzeigen")] = 20,
+    move: Annotated[bool, typer.Option("--move", help="Kopien in einen Dubletten-Ordner verschieben (Vorschau)")] = False,
+    keep: Annotated[str, typer.Option(help="Welche Datei bleibt: oldest, newest, shortest oder first")] = "oldest",
+    to: Annotated[str, typer.Option("--to", "-o", help="Zielordner (leer = _Dubletten im gewählten Ordner)")] = "",
+    flat: Annotated[bool, typer.Option("--flat", help="Ohne Ordnerstruktur im Zielordner")] = False,
+    apply: Apply = False, force_unique: Unique = False, show_all: ShowAll = False,
 ) -> None:
-    """Gleiche Dateien finden (nur anzeigen, es wird nichts verändert)."""
-    idx = FileIndex()
+    """Gleiche Dateien finden. Mit --move werden die Kopien verschoben (nichts wird gelöscht)."""
+    if keep not in ("oldest", "newest", "shortest", "first"):
+        raise typer.BadParameter("keep muss oldest, newest, shortest oder first sein")
     items = scan(paths, recursive=recursive)
+
+    if move:
+        op = MoveDuplicates(keep, to, not flat, min_size // 1024)  # type: ignore[arg-type]
+        _with_progress(lambda cb: op.analyze(items, cb))  # Dateien lesen, Fortschritt zeigen
+        _run(op, paths, recursive, apply, force_unique, show_all)
+        return
+
+    idx = FileIndex()
     groups, res = _with_progress(lambda cb: idx.duplicates(items, min_size=min_size, on_progress=cb))
     for g in groups[:limit]:
         console.print(f"\n[bold]{len(g.files)} × {_human(g.size)}[/bold]  "
-                      f"(sparen: {_human(g.reclaimable)})  [dim]{g.sha256[:12]}[/dim]")
+                      f"(Kopien belegen: {_human(g.reclaimable)})  [dim]{g.sha256[:12]}[/dim]")
         for f in g.files:
             extra = g.hardlinks.get(f)
             console.print(f"  {f}" + (f"  [dim](+{len(extra)} Hardlinks)[/dim]" if extra else ""))
@@ -418,6 +441,8 @@ def duplicates(
     total = sum(g.reclaimable for g in groups)
     console.print(f"\n{len(groups)} Gruppen gleicher Dateien, {_human(total)} belegt durch Kopien. "
                   f"{res.hashed} Dateien mussten dafür ganz gelesen werden (von {res.seen}).")
+    if groups:
+        console.print("[dim]Zum Aufräumen: pc duplicates ORDNER --move (Vorschau), dann --apply.[/dim]")
     for p, msg in res.errors[:10]:
         console.print(f"[red]{p.name}: {msg}[/red]")
 

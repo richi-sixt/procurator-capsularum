@@ -8,6 +8,7 @@ from typing import Any
 
 from .base import Operation
 from .convert import CbrToCbz, ConvertImages
+from .dedupe import MoveDuplicates
 from .move import MoveToFolder
 from .rename import (
     Append,
@@ -51,6 +52,7 @@ class OperationSpec:
             "group": self.group,
             "description": self.description,
             "kind": self.cls.kind,
+            "needsAnalysis": self.cls.needs_analysis,
             "fields": [
                 {
                     "key": f.key, "label": f.label, "type": f.type, "default": f.default,
@@ -143,6 +145,16 @@ SPECS += [
         Field("keep_structure", "Ordnerstruktur beibehalten", "bool", False,
               help="Aus: alle Dateien direkt in den Zielordner. Ein: Unterordner werden nachgebaut."),
     ], "Verschiebt Dateien, der Name bleibt gleich. Rückgängig macht den Lauf zurück."),
+    OperationSpec("duplicates", "Dubletten verschieben", "Organisieren", MoveDuplicates, [
+        Field("keep", "Welche Datei bleibt?", "select", "oldest",
+              [("oldest", "Die älteste"), ("newest", "Die neueste"),
+               ("shortest", "Die mit dem kürzesten Pfad"), ("first", "Die erste (alphabetisch)")],
+              help="Pro Gruppe gleicher Dateien bleibt genau eine liegen."),
+        Field("target_dir", "Zielordner (leer = _Dubletten im gewählten Ordner)", "folder", "",
+              help="Die Kopien werden verschoben, nicht gelöscht. Rückgängig holt sie zurück."),
+        Field("keep_structure", "Ordnerstruktur im Zielordner beibehalten", "bool", True),
+        Field("min_size_kb", "Mindestgrösse in KB (0 = alle)", "number", 0),
+    ], "Findet gleiche Dateien über ihren Inhalt und verschiebt alle bis auf eine. Zuerst «Analysieren»."),
     OperationSpec("cbr2cbz", "CBR → CBZ", "Konvertieren", CbrToCbz, [
         _OUT,
         Field("copy_cbz", "Vorhandene CBZ mitkopieren (nur mit Zielordner)", "bool", False),

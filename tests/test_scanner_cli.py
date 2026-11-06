@@ -55,3 +55,30 @@ def test_cli_undo_of_a_conversion_asks_first_and_says_deleted(folder, tmp_path, 
     r = runner.invoke(app, ["undo", "--yes"])
     assert r.exit_code == 0 and "erzeugte Dateien gelöscht" in r.output
     assert not (out / "a.cbz").exists() and (folder / "a.cbr").exists()
+
+
+def test_cli_duplicates_move_preview_apply_and_undo(folder, tmp_path, monkeypatch):
+    import os
+
+    monkeypatch.setenv("PC_JOURNAL", str(tmp_path / "j.db"))
+    for name, mt in (("a.bin", 1), ("b.bin", 2)):
+        p = folder / name
+        p.write_bytes(b"gleich" * 100)
+        os.utime(p, ns=(mt * 10**9, mt * 10**9))
+    env = {"COLUMNS": "300"}
+
+    r = runner.invoke(app, ["duplicates", str(folder), "--move"], env=env)
+    assert r.exit_code == 0 and "1 Kopie in 1 Gruppe belegen" in r.output
+    assert "Nur Vorschau" in r.output and (folder / "b.bin").exists()  # nichts verändert
+
+    r = runner.invoke(app, ["duplicates", str(folder), "--move", "--apply"], env=env)
+    assert r.exit_code == 0 and "1 verschoben" in r.output
+    assert (folder / "a.bin").exists() and (folder / "_Dubletten" / "b.bin").exists()
+
+    r = runner.invoke(app, ["undo"], env=env)
+    assert r.exit_code == 0 and (folder / "b.bin").exists() and not (folder / "_Dubletten").exists()
+
+
+def test_cli_duplicates_keep_must_be_valid(folder):
+    r = runner.invoke(app, ["duplicates", str(folder), "--move", "--keep", "zufall"])
+    assert r.exit_code != 0

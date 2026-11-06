@@ -9,3 +9,7 @@ dist/
 local/
 node_modules/
 web/dist/
+
+# Nur lokal: Planung und Werkzeug-Einstellungen
+Vision.md
+.claude/

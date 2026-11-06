@@ -94,6 +94,8 @@ def _serialize(plan: Plan) -> dict[str, Any]:
         "kind": plan.kind,
         "counts": {k.value: v for k, v in plan.counts().items()},
         "sensitiveCount": sum(1 for c in plan.changes if c.sensitive),
+        "info": plan.info,
+        "needsAnalysis": plan.needs_analysis,
         "changes": [
             {
                 "src": str(c.src), "srcName": c.src.name,
@@ -217,6 +219,36 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
                 job.batch_id = result.batch_id
                 job.failed = [{"src": c.src.name, "error": msg} for c, msg in result.failed]
                 job.state = "cancelled" if result.cancelled else "finished"
+            except Exception as exc:
+                job.error, job.state = str(exc), "error"
+
+        threading.Thread(target=run, daemon=True).start()
+        return job.to_dict()
+
+    @app.post("/api/analyze")
+    def analyze(req: PlanRequest) -> dict[str, Any]:
+        """Langsamer Vorbereitungsschritt einer Aktion (zum Beispiel Dateien für die Dublettensuche
+        lesen) als Hintergrund-Job. Es wird nichts verändert, nur der lokale Index aktualisiert."""
+        try:
+            op = build(req.operation, req.params)
+        except ParamError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        if not op.needs_analysis:
+            raise HTTPException(400, "Diese Aktion braucht keine Analyse")
+        items = _items(req)
+        with jobs_lock:
+            if any(j.state == "running" for j in jobs.values()):
+                raise HTTPException(409, "Es läuft bereits ein Auftrag")
+            job = Job(id=uuid.uuid4().hex, total=len(items))
+            jobs[job.id] = job
+
+        def progress(done: int, total: int, current: str) -> None:
+            job.done, job.total, job.current = done, total, current
+
+        def run() -> None:
+            try:
+                op.analyze(items, progress, job.cancel)
+                job.state = "cancelled" if job.cancel.is_set() else "finished"
             except Exception as exc:
                 job.error, job.state = str(exc), "error"
 

@@ -16,6 +16,7 @@ export type OperationSpec = {
   label: string
   group: string
   kind: 'move' | 'convert'
+  needsAnalysis?: boolean
   description: string
   fields: Field[]
 }
@@ -39,6 +40,8 @@ export type PlanResponse = {
   kind?: 'move' | 'convert'
   counts: Record<Status, number>
   sensitiveCount?: number
+  info?: Record<string, number | string>
+  needsAnalysis?: boolean
   changes: Change[]
 }
 

@@ -39,6 +39,7 @@ export const api = {
   plan: (input: PlanInput, signal?: AbortSignal) => call<PlanResponse>('/plan', post(input, signal)),
   apply: (input: PlanInput, disabled: string[]) =>
     call<Job>('/apply', post({ ...input, disabled })),
+  analyze: (input: PlanInput) => call<Job>('/analyze', post(input)),
   job: (id: string) => call<Job>(`/jobs/${id}`),
   cancelJob: (id: string) => call<{ ok: boolean }>(`/jobs/${id}/cancel`, { method: 'POST' }),
   history: () => call<Batch[]>('/history'),

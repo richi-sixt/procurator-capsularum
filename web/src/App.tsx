@@ -7,6 +7,13 @@ import PreviewTable from './components/PreviewTable'
 import SettingsDialog from './components/SettingsDialog'
 import type { Job, OperationSpec, Params, PlanResponse, Preset } from './types'
 
+const human = (n: number) => {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let i = 0
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++ }
+  return `${i === 0 ? n.toFixed(0) : n.toFixed(1)} ${units[i]}`
+}
+
 export default function App() {
   const [specs, setSpecs] = useState<OperationSpec[]>([])
   const [presets, setPresets] = useState<Preset[]>([])
@@ -27,6 +34,7 @@ export default function App() {
   const [history, setHistory] = useState(false)
   const [settings, setSettings] = useState(false)
   const [job, setJob] = useState<Job | null>(null) // laufender Auftrag
+  const [jobKind, setJobKind] = useState<'apply' | 'analyze'>('apply')
   const [refresh, setRefresh] = useState(0)
   const requestId = useRef(0)
 
@@ -92,17 +100,23 @@ export default function App() {
 
   const busy = job?.state === 'running'
 
-  const apply = async () => {
-    setNotice(''); setError('')
-    try {
-      let current = await api.apply(input, [...disabled])
+  // Auftrag verfolgen, bis er fertig ist (Fortschritt in `job`)
+  const track = async (first: Job) => {
+    let current = first
+    setJob(current)
+    while (current.state === 'running') {
+      await new Promise((r) => setTimeout(r, 400))
+      current = await api.job(current.id)
       setJob(current)
-      while (current.state === 'running') {
-        await new Promise((r) => setTimeout(r, 400))
-        current = await api.job(current.id)
-        setJob(current)
-      }
-      const verb = spec?.kind === 'convert' ? 'konvertiert' : opName === 'move' ? 'verschoben' : 'umbenannt'
+    }
+    return current
+  }
+
+  const apply = async () => {
+    setNotice(''); setError(''); setJobKind('apply')
+    try {
+      const current = await track(await api.apply(input, [...disabled]))
+      const verb = spec?.kind === 'convert' ? 'konvertiert' : (opName === 'move' || opName === 'duplicates') ? 'verschoben' : 'umbenannt'
       if (current.state === 'error') setError(current.error)
       else setNotice(
         `${current.ok} ${verb}${current.state === 'cancelled' ? ' (abgebrochen)' : ''}` +
@@ -110,6 +124,21 @@ export default function App() {
         '.' + (current.batchId ? ` Lauf #${current.batchId}, im Verlauf rückgängig zu machen.` : ''),
       )
       setDisabled(new Set()); setRefresh((n) => n + 1)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally { setJob(null) }
+  }
+
+  // Langsamer Vorbereitungsschritt (zum Beispiel Dateien für die Dublettensuche lesen)
+  const analyze = async () => {
+    setNotice(''); setError(''); setJobKind('analyze')
+    try {
+      const current = await track(await api.analyze(input))
+      if (current.state === 'error') setError(current.error)
+      else setNotice(current.state === 'cancelled'
+        ? 'Analyse abgebrochen. Was schon gelesen ist, bleibt gespeichert, du kannst später weitermachen.'
+        : 'Analyse fertig.')
+      setRefresh((n) => n + 1)
     } catch (e) {
       setError((e as Error).message)
     } finally { setJob(null) }
@@ -206,6 +235,7 @@ export default function App() {
               <span className="muted">
                 {counts.ok} bereit · {counts.skip} übersprungen · {counts.conflict} Konflikte · {counts.error} Fehler
                 {plan?.sensitiveCount ? ` · 🔒 ${plan.sensitiveCount} sensibel` : ''}
+                {typeof plan?.info?.duplicates === 'number' ? ` · ${plan.info.duplicates} Kopie${plan.info.duplicates === 1 ? '' : 'n'} in ${plan.info.groups} Gruppe${plan.info.groups === 1 ? '' : 'n'} (${human(Number(plan.info.bytes))})` : ''}
               </span>
             )}
             <label className="check push"><input type="checkbox" checked={showSkipped}
@@ -214,10 +244,28 @@ export default function App() {
 
           {error && <p className="error" role="alert">{error}</p>}
           {notice && <p className="notice" role="status">{notice}</p>}
+          {plan?.needsAnalysis && !listing && (
+            busy && job && jobKind === 'analyze' ? (
+              <div className="banner" role="status">
+                <span>Analyse läuft …</span>
+                <progress max={Math.max(job.total, 1)} value={job.done} aria-label="Fortschritt der Analyse" />
+                <span className="muted small">{job.done}/{job.total} {job.current}</span>
+                <button onClick={cancel}>Abbrechen</button>
+              </div>
+            ) : Number(plan.info?.pendingFiles ?? 0) > 0 ? (
+              <div className="banner">
+                <span>
+                  Für die Suche müssen noch <strong>{Number(plan.info?.pendingFiles)}</strong> Dateien gelesen werden
+                  (etwa {human(Number(plan.info?.pendingBytes ?? 0))}). Schon bekannte Dateien werden nicht erneut gelesen.
+                </span>
+                <button className="primary" onClick={() => void analyze()} disabled={busy}>Analysieren</button>
+              </div>
+            ) : null
+          )}
           {paths.length === 0 && <p className="empty">Wähle links einen Ordner, dann eine Aktion.</p>}
           {listing && plan && plan.changes.length > 0 && <p className="muted small">{plan.changes.length} Dateien. Fülle links die Aktion aus ({missing.join(', ')}), dann erscheint die Vorschau der neuen Namen.</p>}
           {plan && plan.changes.length === 0 && <p className="empty">Keine Dateien gefunden.</p>}
-          {plan && !listing && plan.changes.length > 0 && counts && counts.ok + counts.conflict + counts.error === 0 && !showSkipped && (
+          {plan && !listing && plan.changes.length > 0 && counts && counts.ok + counts.conflict + counts.error === 0 && !showSkipped && !Number(plan.info?.pendingFiles ?? 0) && (
             <p className="empty">Nichts zu tun: alle {counts.skip} Dateien werden übersprungen. «Übersprungene zeigen» nennt die Gründe.</p>
           )}
 
@@ -234,15 +282,15 @@ export default function App() {
               </div>
               {!listing && <div className="actionbar">
                 <span className="muted">{runnable} von {counts?.ok ?? 0} ausgewählt</span>
-                {busy && job ? (
+                {busy && job && jobKind === 'apply' ? (
                   <>
                     <progress max={Math.max(job.total, 1)} value={job.done} aria-label="Fortschritt" />
                     <span className="muted small">{job.done}/{job.total} {job.current}</span>
                     <button onClick={cancel}>Abbrechen</button>
                   </>
                 ) : (
-                  <button className="primary" disabled={runnable === 0} onClick={() => void apply()}>
-                    {`${runnable} Dateien ${spec?.kind === 'convert' ? 'konvertieren' : opName === 'move' ? 'verschieben' : 'umbenennen'}`}
+                  <button className="primary" disabled={runnable === 0 || busy} onClick={() => void apply()}>
+                    {`${runnable} Dateien ${spec?.kind === 'convert' ? 'konvertieren' : (opName === 'move' || opName === 'duplicates') ? 'verschieben' : 'umbenennen'}`}
                   </button>
                 )}
               </div>}

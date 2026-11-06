@@ -14,7 +14,7 @@ auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. E
 | **Umbenennen** | Text ersetzen (erster, letzter, alle Treffer), Wildcard (`*`, `?`), regulärer Ausdruck mit `$1`-Rückverweisen, Anhängen, Voranstellen, Zeichen entfernen und einfügen, Gross-/Kleinschreibung, Laufnummer (mit eigener Reihenfolge per Ziehen), Datum |
 | **Verschieben** | In einen anderen Ordner, flach oder mit nachgebauter Ordnerstruktur. Zielordner werden angelegt, auch auf ein anderes Laufwerk |
 | **Konvertieren** | CBR → CBZ (Seiten bleiben bitidentisch), Bilder (JPG, PNG, WebP, HEIC, TIFF, BMP → JPG, PNG, WebP, optional verkleinern) |
-| **Dubletten** | Lokaler Datei-Index mit Hashes, findet gleiche Dateien und liest dafür so wenig wie möglich |
+| **Dubletten** | Findet gleiche Dateien über ihren Inhalt und verschiebt alle bis auf eine in einen Ordner `_Dubletten`, nichts wird gelöscht. Ein lokaler Datei-Index sorgt dafür, dass so wenig wie möglich gelesen wird |
 | **Sicherheit** | Konflikterkennung (gleiche Zielnamen, vorhandene Dateien werden nie überschrieben), Verlauf mit Rückgängig, sensible Dateien werden markiert |
 | **Oberfläche** | Vorschau-Tabelle mit Checkbox pro Zeile, Fortschritt und Abbrechen bei langen Läufen, gespeicherte Einstellungen |
 
@@ -64,7 +64,8 @@ uv run pc rename sequence ORDNER --label Urlaub --position replace --sort name
 uv run pc move ORDNER -r --to ZIEL --keep-structure --apply
 uv run pc convert cbr2cbz QUELLE --to ZIEL --apply
 uv run pc convert images ORDNER --to ZIEL --format webp --max-edge 1600 --apply
-uv run pc duplicates ORDNER
+uv run pc duplicates ORDNER                    # gleiche Dateien anzeigen
+uv run pc duplicates ORDNER --move             # Kopien verschieben (Vorschau, mit --apply ausführen)
 uv run pc history
 uv run pc undo
 ```
@@ -85,7 +86,7 @@ Dateien zeigen).
 | `pc rename sequence` / `date` | Laufnummer oder Datum einfügen |
 | `pc move` | In einen anderen Ordner verschieben |
 | `pc convert cbr2cbz` / `images` | Dateien konvertieren |
-| `pc index` / `pc duplicates` | Datei-Index pflegen, gleiche Dateien anzeigen |
+| `pc index` / `pc duplicates` | Datei-Index pflegen, gleiche Dateien anzeigen oder mit `--move` verschieben |
 | `pc sensitive` | Zeigt, welche Dateien als sensibel gelten |
 | `pc config` | Pfad und Werte der Konfiguration anzeigen |
 | `pc history` / `pc undo` | Verlauf anzeigen, Lauf rückgängig machen |
@@ -99,6 +100,14 @@ Dateien zeigen).
 - **Zielordner bei Konvertierungen:** Ohne Angabe liegt das Ergebnis neben der Quelle, mit Zielordner wird die Ordnerstruktur der Quelle dort nachgebaut. Vorhandene Ziele werden übersprungen, ein abgebrochener Lauf lässt sich also fortsetzen.
 - **Rückgängig beim Verschieben** holt die Dateien zurück und entfernt die dabei angelegten, leeren Ordner.
 - **Rückgängig bei Konvertierungen** löscht die erzeugten Dateien. Die Kommandozeile fragt vorher nach (`pc undo --yes` überspringt die Frage), die Originale bleiben unverändert.
+
+### Dubletten im Detail
+
+- **Gleich heisst gleicher Inhalt**, nicht gleicher Name. Verglichen wird über einen lokalen Index: erst die Grösse, dann die ersten 64 KB, erst bei Gleichstand der ganze Inhalt (SHA-256). Unveränderte Dateien werden nie erneut gelesen.
+- **Zwei Schritte:** Das Lesen der Dateien heisst «Analysieren» und läuft mit Fortschritt im Hintergrund (in der Oberfläche ein Knopf, auf der Kommandozeile automatisch bei `--move`). Die Vorschau selbst liest nichts und bleibt schnell.
+- **Pro Gruppe bleibt genau eine Datei liegen.** Welche, bestimmst du: die älteste (Standard), die neueste, die mit dem kürzesten Pfad oder die erste alphabetisch.
+- **Verschoben, nicht gelöscht:** Die Kopien landen in `_Dubletten` im gewählten Ordner (oder in einem Zielordner deiner Wahl), mit nachgebauter Ordnerstruktur. Löschen kannst du sie danach selbst. «Rückgängig» holt sie zurück.
+- Mehrere gewählte Ordner werden miteinander verglichen. Hardlinks und Symlinks gelten nicht als Kopien, leere Dateien auch nicht.
 
 ## Datenschutz und Sicherheit
 
@@ -163,8 +172,8 @@ Konflikterkennung und Rückgängig funktionieren deshalb für jede Operation gle
 
 ## Geplant
 
-Dubletten verschieben, KI-Vorschläge zum Ordnen mit einem lokalen Modell, PDF → Markdown,
-EPUB-Konvertierung und eine Desktop-App.
+KI-Vorschläge zum Ordnen mit einem lokalen Modell, PDF → Markdown, EPUB-Konvertierung und eine
+Desktop-App.
 
 ## Lizenz
 

@@ -58,6 +58,8 @@ class Plan:
     params: dict[str, Any] = field(default_factory=dict)
     changes: list[PlannedChange] = field(default_factory=list)
     kind: str = "move"  # move = umbenennen, convert = neue Datei erzeugen
+    info: dict[str, Any] = field(default_factory=dict)  # Zusatzangaben der Operation
+    needs_analysis: bool = False
     runner: Callable[[Path, Path], str | None] | None = field(default=None, repr=False)
 
     def counts(self) -> dict[Status, int]:

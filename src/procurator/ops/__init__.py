@@ -1,5 +1,6 @@
 from .base import Operation
 from .convert import CbrToCbz, ConvertImages
+from .dedupe import MoveDuplicates
 from .move import MoveToFolder
 from .rename import (
     Append,
@@ -21,6 +22,7 @@ __all__ = [
     "ConvertImages",
     "DateStamp",
     "InsertChars",
+    "MoveDuplicates",
     "MoveToFolder",
     "Operation",
     "Prepend",

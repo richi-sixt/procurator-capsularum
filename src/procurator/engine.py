@@ -53,6 +53,8 @@ def make_plan(
     plan = Plan(operation=op.name, params={**op.params(), "force_unique": force_unique},
                 kind=op.kind, runner=op.convert if convert else None)
 
+    op.prepare(items)
+
     # 1. Zielpfade berechnen
     for index, item in enumerate(op.order(items)):
         src = item.path
@@ -68,7 +70,8 @@ def make_plan(
             plan.changes.append(PlannedChange(src, None, Status.ERROR, f"{type(exc).__name__}: {exc}"))
             continue
         if new_name is None:
-            reason = "Nicht unterstützter Dateityp" if convert else "Kein Treffer"
+            reason = op.skip_reason(item) or (
+                "Nicht unterstützter Dateityp" if convert else "Kein Treffer")
             plan.changes.append(PlannedChange(src, None, Status.SKIP, reason))
             continue
         if (problem := _invalid_name(new_name)) is not None:
@@ -86,12 +89,14 @@ def make_plan(
         if problem:
             plan.changes.append(PlannedChange(src, dst, Status.ERROR, problem))
         else:
-            plan.changes.append(PlannedChange(src, dst))
+            plan.changes.append(PlannedChange(src, dst, reason=op.note(item)))
 
     if convert:
         _resolve_convert(plan)
     else:
         _resolve_conflicts(plan, force_unique)
+    plan.info = op.info()
+    plan.needs_analysis = op.needs_analysis
     if sensitive is not None:  # nur eine Markierung, der Status bleibt unverändert
         hits = {item.path: sensitive.match(item) for item in items}
         for c in plan.changes:
@@ -162,7 +167,7 @@ def _resolve_conflicts(plan: Plan, force_unique: bool) -> None:
                     _key(p) in assigned or _key(p) in staying or on_disk_blocked(src, p)
                 ),
             )
-            c.reason = "Nummer angehängt (Force Unique)"
+            c.reason = (c.reason + " · " if c.reason else "") + "Nummer angehängt (Force Unique)"
         elif counts[key] > 1 and not force_unique:
             c.status, c.reason = Status.CONFLICT, "Doppelter Zielname"
         elif blocked:
