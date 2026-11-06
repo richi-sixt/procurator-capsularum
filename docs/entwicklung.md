@@ -26,6 +26,27 @@ Die Tests lesen und schreiben nie die echte Konfiguration oder den echten Index.
 Fixture `journal` in einem temporären Ordner an. Mit `PC_CONFIG`, `PC_JOURNAL` und `PC_INDEX` lässt sich auch
 das Programm selbst für Experimente isolieren.
 
+## Automatische Prüfung (CI)
+
+`.github/workflows/ci.yml` läuft bei jedem Push auf `main` und bei jedem Pull-Request:
+
+| Job | Was | Wo |
+|---|---|---|
+| Python | `ruff check` und `pytest` | Ubuntu mit Python 3.11 (älteste unterstützte Version) und 3.14, macOS mit 3.14 |
+| Oberfläche | `npm ci`, `npm run lint`, `npm run build` (inklusive `tsc`) | Ubuntu mit Node 22 |
+
+Die Python-Umgebung kommt aus `uv.lock` (`uv sync --locked`). Ändert sich eine Abhängigkeit in `pyproject.toml`,
+muss `uv.lock` mit committet werden, sonst bricht der Job ab. Die Actions sind auf Commits angepinnt (die
+Version steht als Kommentar), der Workflow hat nur Lesezugriff. Dasselbe lokal:
+
+```bash
+uv sync --locked && uv run ruff check . && uv run pytest -q
+cd web && npm ci && npm run lint && npm run build
+```
+
+Tests, die `unar` oder `rar` brauchen, werden in CI übersprungen. Der Lint der Oberfläche meldet derzeit
+Warnungen, aber keine Fehler. Sie brechen den Job nicht ab.
+
 ## Aufbau
 
 ```
