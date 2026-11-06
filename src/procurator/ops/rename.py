@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import math
 import re
-import sys
 from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import date, datetime
+from pathlib import Path
 from typing import ClassVar, Literal
 
+from ..meta import best_date, created_ts
 from ..model import FileItem
 from ..scanner import natural_key
 from .base import Operation
@@ -196,8 +197,7 @@ class ChangeCase(RenameOperation):
 
 
 def _created(item: FileItem) -> float:
-    st = item.path.stat()
-    return getattr(st, "st_birthtime", st.st_ctime) if sys.platform == "darwin" else st.st_ctime
+    return created_ts(item.path)
 
 
 def _place(text: str, addition: str, position: str, sep: str) -> str:
@@ -219,13 +219,14 @@ class Sequence(RenameOperation):
     position: Literal["append", "prepend", "replace"] = "append"
     label_first: bool = True
     sep: str = "-"
-    sort: Literal["custom", "name", "created", "modified"] = "custom"
+    sort: Literal["custom", "name", "auto", "created", "modified"] = "custom"
     descending: bool = False
     keep_extension: bool = True
 
     def order(self, items: list[FileItem]) -> list[FileItem]:
         keys = {
             "name": lambda i: natural_key(i.name),
+            "auto": lambda i: (best_date(i.path)[0], natural_key(i.name)),  # Aufnahmedatum, sonst ältestes
             "created": _created,
             "modified": lambda i: i.path.stat().st_mtime,
         }
@@ -249,23 +250,106 @@ class Sequence(RenameOperation):
 
 @dataclass
 class DateStamp(RenameOperation):
-    """Datum aus `custom`, Erstellungs- oder Änderungsdatum einfügen (strftime-Format)."""
+    """Datum einfügen: automatisch aus den Metadaten, Erstellt, Geändert oder ein eigenes Datum.
+
+    «auto» nimmt bei Bildern das Aufnahmedatum (EXIF), sonst das ältere von Erstellt und Geändert.
+    Das Datum des Ausführungstags wird nie verwendet (siehe `meta.best_date`).
+    """
 
     name: ClassVar[str] = "date"
-    source: Literal["custom", "created", "modified"] = "modified"
+    source: Literal["auto", "custom", "created", "modified"] = "auto"
     custom_date: date | None = None
     fmt: str = "%Y-%m-%d"
     position: Literal["append", "prepend", "replace"] = "prepend"
     sep: str = "_"
     keep_extension: bool = True
 
+    def _stamp(self, item: FileItem) -> tuple[datetime, str] | None:
+        """Datum und Quelle. Pro Datei einmal berechnet, die Vorschau fragt mehrfach."""
+        cache: dict[Path, tuple[datetime, str] | None] = self.__dict__.setdefault("_cache", {})
+        if item.path not in cache:
+            if self.source == "custom":
+                cache[item.path] = None if self.custom_date is None else (
+                    datetime.combine(self.custom_date, datetime.min.time()), "Eigenes Datum")
+            elif self.source == "created":
+                cache[item.path] = (datetime.fromtimestamp(_created(item)), "Erstellungsdatum der Datei")
+            elif self.source == "modified":
+                cache[item.path] = (datetime.fromtimestamp(item.path.stat().st_mtime),
+                                    "Änderungsdatum der Datei")
+            else:
+                cache[item.path] = best_date(item.path)
+        return cache[item.path]
+
+    def note(self, item: FileItem) -> str:
+        found = self._stamp(item)
+        return f"Datum aus: {found[1]}" if found and self.source == "auto" else ""
+
     def edit(self, text: str, item: FileItem, index: int) -> str | None:
-        if self.source == "custom":
-            if self.custom_date is None:
-                return None
-            stamp = datetime.combine(self.custom_date, datetime.min.time())
-        elif self.source == "created":
-            stamp = datetime.fromtimestamp(_created(item))
-        else:
-            stamp = datetime.fromtimestamp(item.path.stat().st_mtime)
-        return _place(text, stamp.strftime(self.fmt), self.position, self.sep)
+        found = self._stamp(item)
+        if found is None:
+            return None
+        return _place(text, found[0].strftime(self.fmt), self.position, self.sep)
+
+
+# --- Name aus Vorlage -------------------------------------------------------
+
+_TOKEN = re.compile(r"\{(\w+)(?::([^{}]*))?\}")
+TEMPLATE_TOKENS = ("date", "size", "name", "ext", "n", "folder")
+
+
+@dataclass
+class NameTemplate(RenameOperation):
+    """Neuer Name aus einer Vorlage mit Platzhaltern, zum Beispiel `{date:%Y%m%d_%H-%M-%S}_{size}`.
+
+    Platzhalter: `{date}` oder `{date:Format}` (strftime, Quelle wie bei «Datum»), `{size}` (Byte),
+    `{name}` (bisheriger Name), `{ext}` (Endung ohne Punkt), `{n}` (Laufnummer), `{folder}` (Name
+    des Ordners). Bei `{size}` und `{n}` füllt `{n:3}` mit Nullen auf drei Stellen auf.
+    Die Vorlage ersetzt den ganzen Namen, die Endung bleibt standardmässig unverändert.
+    """
+
+    name: ClassVar[str] = "template"
+    template: str = "{date:%Y%m%d_%H-%M-%S}_{size}"
+    source: Literal["auto", "created", "modified"] = "auto"
+    start: int = 1
+    keep_extension: bool = True
+
+    def __post_init__(self) -> None:
+        if not self.template.strip():
+            raise ValueError("Vorlage fehlt")
+        for m in _TOKEN.finditer(self.template):
+            if m.group(1) not in TEMPLATE_TOKENS:
+                raise ValueError(
+                    f"Unbekannter Platzhalter {{{m.group(1)}}}. Erlaubt: "
+                    + ", ".join("{" + t + "}" for t in TEMPLATE_TOKENS))
+        rest = _TOKEN.sub("", self.template)
+        if "{" in rest or "}" in rest:
+            raise ValueError("Geschweifte Klammern nur für Platzhalter, zum Beispiel {size}")
+        self._dates = DateStamp(self.source)
+
+    def order(self, items: list[FileItem]) -> list[FileItem]:
+        return sorted(items, key=lambda i: natural_key(i.name))
+
+    def note(self, item: FileItem) -> str:
+        return self._dates.note(item) if "{date" in self.template else ""
+
+    def edit(self, text: str, item: FileItem, index: int) -> str | None:
+        def fill(m: re.Match[str]) -> str:
+            token, spec = m.group(1), m.group(2)
+            if token == "date":
+                found = self._dates._stamp(item)
+                assert found is not None
+                return found[0].strftime(spec or "%Y-%m-%d")
+            if token in ("size", "n"):
+                number = item.path.stat().st_size if token == "size" else self.start + index
+                width = int(spec) if spec and spec.isdigit() else 0
+                return str(number).zfill(width)
+            if token == "name":
+                return text
+            if token == "ext":
+                return item.suffix.lstrip(".")
+            return item.path.parent.name  # folder
+
+        new = _TOKEN.sub(fill, self.template).strip()
+        if not new:
+            raise ValueError("Die Vorlage ergibt einen leeren Namen")
+        return new

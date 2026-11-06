@@ -28,12 +28,14 @@ from .ops import (
     InsertChars,
     MoveDuplicates,
     MoveToFolder,
+    NameTemplate,
     Operation,
     Prepend,
     RegexReplace,
     RemoveChars,
     ReplaceText,
     Sequence,
+    SortByTemplate,
     Wildcard,
 )
 from .privacy import rules_from_config
@@ -256,7 +258,7 @@ def sequence(
     start: Annotated[int, typer.Option()] = 1,
     position: Annotated[str, typer.Option(help="append, prepend oder replace")] = "append",
     number_first: Annotated[bool, typer.Option("--number-first", help="001-Name statt Name-001")] = False,
-    sort: Annotated[str, typer.Option(help="custom, name, created oder modified")] = "name",
+    sort: Annotated[str, typer.Option(help="custom, name, auto (Aufnahmedatum), created oder modified")] = "name",
     descending: Annotated[bool, typer.Option("--descending")] = False,
     with_ext: WithExt = False, recursive: Recursive = False, apply: Apply = False,
     force_unique: Unique = False, show_all: ShowAll = False,
@@ -264,17 +266,36 @@ def sequence(
     """Laufnummer hinzufügen."""
     if position not in ("append", "prepend", "replace"):
         raise typer.BadParameter("position muss append, prepend oder replace sein")
-    if sort not in ("custom", "name", "created", "modified"):
-        raise typer.BadParameter("sort muss custom, name, created oder modified sein")
+    if sort not in ("custom", "name", "auto", "created", "modified"):
+        raise typer.BadParameter("sort muss custom, name, auto, created oder modified sein")
     op = Sequence(label, digits, start, position, not number_first, "-", sort,  # type: ignore[arg-type]
                   descending, not with_ext)
+    _run(op, paths, recursive, apply, force_unique, show_all)
+
+
+@rename.command("template")
+def template_cmd(
+    template: Annotated[str, typer.Argument(help="Vorlage, zum Beispiel '{date:%Y%m%d_%H-%M-%S}_{size}'")],
+    paths: Paths,
+    source: Annotated[str, typer.Option(help="auto, created oder modified (Quelle von {date})")] = "auto",
+    start: Annotated[int, typer.Option(help="Startnummer für {n}")] = 1,
+    with_ext: WithExt = False, recursive: Recursive = False, apply: Apply = False,
+    force_unique: Unique = False, show_all: ShowAll = False,
+) -> None:
+    """Namen aus einer Vorlage mit Platzhaltern bauen ({date}, {size}, {name}, {ext}, {n}, {folder})."""
+    if source not in ("auto", "created", "modified"):
+        raise typer.BadParameter("source muss auto, created oder modified sein")
+    try:
+        op = NameTemplate(template, source, start, not with_ext)  # type: ignore[arg-type]
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
     _run(op, paths, recursive, apply, force_unique, show_all)
 
 
 @rename.command("date")
 def date_cmd(
     paths: Paths,
-    source: Annotated[str, typer.Option(help="custom, created oder modified")] = "modified",
+    source: Annotated[str, typer.Option(help="auto (Aufnahmedatum, sonst ältestes Dateidatum), created, modified oder custom")] = "auto",
     on: Annotated[str, typer.Option("--on", help="Datum YYYY-MM-DD (bei source=custom)")] = "",
     fmt: Annotated[str, typer.Option("--format", help="strftime-Format")] = "%Y-%m-%d",
     position: Annotated[str, typer.Option(help="append, prepend oder replace")] = "prepend",
@@ -282,8 +303,8 @@ def date_cmd(
     force_unique: Unique = False, show_all: ShowAll = False,
 ) -> None:
     """Datum in den Namen einfügen."""
-    if source not in ("custom", "created", "modified"):
-        raise typer.BadParameter("source muss custom, created oder modified sein")
+    if source not in ("auto", "custom", "created", "modified"):
+        raise typer.BadParameter("source muss auto, created, modified oder custom sein")
     if position not in ("append", "prepend", "replace"):
         raise typer.BadParameter("position muss append, prepend oder replace sein")
     custom: Date | None = None
@@ -334,6 +355,24 @@ def move_files(
 ) -> None:
     """Dateien in einen anderen Ordner verschieben (auch auf ein anderes Laufwerk)."""
     _run(MoveToFolder(to, keep_structure), paths, recursive, apply, force_unique, show_all)
+
+
+@app.command("sort")
+def sort_cmd(
+    template: Annotated[str, typer.Argument(help="Ordner-Vorlage, zum Beispiel '{type}/{date:%Y}'")],
+    paths: Paths, to: OutDir = "",
+    source: Annotated[str, typer.Option(help="auto, created oder modified (Quelle von {date})")] = "auto",
+    recursive: Recursive = True, apply: Apply = False, force_unique: Unique = False,
+    show_all: ShowAll = False,
+) -> None:
+    """Ohne KI nach festen Regeln in Ordner sortieren ({date}, {type}, {ext}, {initial}, {folder})."""
+    if source not in ("auto", "created", "modified"):
+        raise typer.BadParameter("source muss auto, created oder modified sein")
+    try:
+        op = SortByTemplate(template, to, source)  # type: ignore[arg-type]
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    _run(op, paths, recursive, apply, force_unique, show_all)
 
 
 @app.command()

@@ -4,6 +4,8 @@ Procurator Capsularum bündelt, was man regelmässig mit vielen Dateien und Büc
 Aktion wählen, in einer Vorschau prüfen, was passieren würde, und erst dann ausführen. Alles läuft lokal
 auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. Eine Desktop-App ist geplant.
 
+> **Dokumentation:** [Anleitung](docs/anleitung.md) für Anwender, [Entwicklung](docs/entwicklung.md) für alle, die am Code arbeiten.
+>
 > **Stand:** frühe Version (0.1), in Entwicklung. Entwickelt und getestet unter macOS. Mach vor dem ersten
 > Einsatz auf wichtigen Daten ein Backup und lies immer die Vorschau.
 
@@ -11,8 +13,9 @@ auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. E
 
 | Bereich | Funktionen |
 |---|---|
-| **Umbenennen** | Text ersetzen (erster, letzter, alle Treffer), Wildcard (`*`, `?`), regulärer Ausdruck mit `$1`-Rückverweisen, Anhängen, Voranstellen, Zeichen entfernen und einfügen, Gross-/Kleinschreibung, Laufnummer (mit eigener Reihenfolge per Ziehen), Datum |
+| **Umbenennen** | Text ersetzen (erster, letzter, alle Treffer), Wildcard (`*`, `?`), regulärer Ausdruck mit `$1`-Rückverweisen, Anhängen, Voranstellen, Zeichen entfernen und einfügen, Gross-/Kleinschreibung, Laufnummer (mit eigener Reihenfolge per Ziehen), Name aus Vorlage (zum Beispiel `{date:%Y%m%d_%H-%M-%S}_{size}`), Datum (automatisch aus dem Aufnahmedatum der Fotos, sonst aus dem ältesten Dateidatum, nie vom Ausführungstag) |
 | **Verschieben** | In einen anderen Ordner, flach oder mit nachgebauter Ordnerstruktur. Zielordner werden angelegt, auch auf ein anderes Laufwerk |
+| **Nach Regeln sortieren** | Ohne KI in Ordner nach Vorlage sortieren, zum Beispiel `{type}/{date:%Y}` ergibt `Bilder/2024`. Platzhalter: Datum (bei Fotos das Aufnahmedatum), Dateityp, Endung, Anfangsbuchstabe, bisheriger Ordner |
 | **Konvertieren** | CBR → CBZ (Seiten bleiben bitidentisch), Bilder (JPG, PNG, WebP, HEIC, TIFF, BMP → JPG, PNG, WebP, optional verkleinern) |
 | **Dubletten** | Findet gleiche Dateien über ihren Inhalt und verschiebt alle bis auf eine in einen Ordner `_Dubletten`, nichts wird gelöscht. Ein lokaler Datei-Index sorgt dafür, dass so wenig wie möglich gelesen wird |
 | **KI-Vorschläge** | Ein Sprachmodell schlägt Ordner und bessere Dateinamen vor, du prüfst und korrigierst in der Vorschau. Standardmässig mit einem lokalen Modell ([Ollama](https://ollama.com/)), optional mit Claude. Sensible Dateien werden nie gesendet. Die App lernt aus deinen Entscheidungen (angenommen, abgelehnt, korrigiert), lokal gespeichert und löschbar |
@@ -88,6 +91,8 @@ Dateien zeigen).
 | `pc rename remove` / `insert` | Zeichen entfernen oder einfügen |
 | `pc rename case` | Gross-/Kleinschreibung ändern |
 | `pc rename sequence` / `date` | Laufnummer oder Datum einfügen |
+| `pc sort '{type}/{date:%Y}' ORDNER` | Ohne KI nach festen Regeln in Ordner sortieren: `{date}`, `{type}`, `{ext}`, `{initial}`, `{folder}`, mit `--to` in einen anderen Ordner |
+| `pc rename template '{date:%Y%m%d_%H-%M-%S}_{size}' ORDNER` | Namen aus einer Vorlage bauen: `{date}`, `{size}`, `{name}`, `{ext}`, `{n}`, `{folder}` |
 | `pc move` | In einen anderen Ordner verschieben |
 | `pc convert cbr2cbz` / `images` | Dateien konvertieren |
 | `pc index` / `pc duplicates` | Datei-Index pflegen, gleiche Dateien anzeigen oder mit `--move` verschieben |
@@ -143,6 +148,8 @@ Hashes, nie Dateiinhalte. Für Tests und eigene Experimente lassen sich die Orte
 Umgebungsvariablen `PC_CONFIG`, `PC_JOURNAL` und `PC_INDEX` überschreiben.
 
 ## Entwicklung
+
+Ausführlicher in [docs/entwicklung.md](docs/entwicklung.md).
 
 ```bash
 uv run pytest                      # Python-Tests

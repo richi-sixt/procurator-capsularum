@@ -9,13 +9,14 @@ from typing import Any
 from .base import Operation
 from .convert import CbrToCbz, ConvertImages
 from .dedupe import MoveDuplicates
-from .move import MoveToFolder
+from .move import MoveToFolder, SortByTemplate
 from .organize import AiOrganize
 from .rename import (
     Append,
     ChangeCase,
     DateStamp,
     InsertChars,
+    NameTemplate,
     Prepend,
     RegexReplace,
     RemoveChars,
@@ -121,14 +122,28 @@ SPECS: list[OperationSpec] = [
         Field("label_first", "Name vor der Nummer", "bool", True),
         Field("sep", "Trennzeichen", "text", "-"),
         Field("sort", "Reihenfolge", "select", "name",
-              [("custom", "Eigene (Ziehen)"), ("name", "Name"), ("created", "Erstellt"),
-               ("modified", "Geändert")]),
+              [("custom", "Eigene (Ziehen)"), ("name", "Name"),
+               ("auto", "Datum (Aufnahmedatum, sonst ältestes Dateidatum)"),
+               ("created", "Erstellt"), ("modified", "Geändert")]),
         Field("descending", "Absteigend", "bool", False),
         _EXT,
     ]),
+    OperationSpec("template", "Name aus Vorlage", "Nummer & Datum", NameTemplate, [
+        Field("template", "Vorlage", "text", "{date:%Y%m%d_%H-%M-%S}_{size}", required=True,
+              help="Platzhalter: {date} oder {date:%Y%m%d_%H-%M-%S}, {size} (Byte), {name} (alter "
+                   "Name), {ext}, {n} oder {n:3} (Laufnummer), {folder}. Die Vorlage ersetzt den "
+                   "ganzen Namen."),
+        Field("source", "Quelle des Datums", "select", "auto",
+              [("auto", "Automatisch (Aufnahmedatum, sonst ältestes Dateidatum)"),
+               ("created", "Erstellt"), ("modified", "Geändert")]),
+        Field("start", "Startnummer für {n}", "number", 1),
+        _EXT,
+    ], "Baut den Namen aus Platzhaltern, zum Beispiel Zeitpunkt und Dateigrösse. Gut, wenn Bilder von "
+       "mehreren Geräten im selben Ordner landen."),
     OperationSpec("date", "Datum", "Nummer & Datum", DateStamp, [
-        Field("source", "Quelle", "select", "modified",
-              [("custom", "Eigenes Datum"), ("created", "Erstellt"), ("modified", "Geändert")]),
+        Field("source", "Quelle", "select", "auto",
+              [("auto", "Automatisch (Aufnahmedatum, sonst ältestes Dateidatum)"),
+               ("created", "Erstellt"), ("modified", "Geändert"), ("custom", "Eigenes Datum")]),
         Field("custom_date", "Datum", "date", None, show_if={"source": "custom"}),
         Field("fmt", "Format (strftime)", "text", "%Y-%m-%d"),
         Field("position", "Position", "select", "prepend", _POS),
@@ -147,6 +162,16 @@ SPECS += [
         Field("keep_structure", "Ordnerstruktur beibehalten", "bool", False,
               help="Aus: alle Dateien direkt in den Zielordner. Ein: Unterordner werden nachgebaut."),
     ], "Verschiebt Dateien, der Name bleibt gleich. Rückgängig macht den Lauf zurück."),
+    OperationSpec("sort_template", "In Ordner nach Vorlage sortieren", "Organisieren", SortByTemplate, [
+        Field("template", "Ordner-Vorlage", "text", "{type}/{date:%Y}", required=True,
+              help="Platzhalter: {date:%Y} (Jahr), {date:%Y-%m} , {type} (Bilder, Dokumente, …), "
+                   "{ext}, {initial}, {folder}. Ein / ergibt Unterordner. Der Dateiname bleibt."),
+        Field("base_dir", "Zielordner (leer = im gewählten Ordner)", "folder", "",
+              help="Wird angelegt, falls er fehlt."),
+        Field("source", "Quelle des Datums", "select", "auto",
+              [("auto", "Automatisch (Aufnahmedatum, sonst ältestes Dateidatum)"),
+               ("created", "Erstellt"), ("modified", "Geändert")]),
+    ], "Sortiert ohne KI nach festen Regeln, zum Beispiel Bilder/2024. Rückgängig macht den Lauf zurück."),
     OperationSpec("ai_organize", "KI-Vorschläge (ordnen und benennen)", "Organisieren", AiOrganize, [
         Field("mode", "Was soll vorgeschlagen werden?", "select", "both",
               [("both", "Ordner und Namen"), ("folders", "Nur Ordner"), ("names", "Nur Namen")]),
@@ -218,4 +243,7 @@ def build(name: str, params: dict[str, Any]) -> Operation:
     for f in spec.fields:
         if f.required and kwargs[f.key] in ("", None):
             raise ParamError(f"{f.label} fehlt")
-    return spec.cls(**kwargs)
+    try:
+        return spec.cls(**kwargs)
+    except ValueError as exc:  # zum Beispiel eine ungültige Vorlage
+        raise ParamError(str(exc)) from exc

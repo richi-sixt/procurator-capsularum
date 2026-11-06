@@ -319,7 +319,7 @@ export default function App() {
                   </>
                 ) : (
                   <button className="primary" disabled={runnable === 0 || busy} onClick={() => void apply()}>
-                    {`${runnable} Dateien ${spec?.kind === 'convert' ? 'konvertieren' : (opName === 'move' || opName === 'duplicates') ? 'verschieben' : opName === 'ai_organize' ? 'anwenden' : 'umbenennen'}`}
+                    {`${runnable} Dateien ${spec?.kind === 'convert' ? 'konvertieren' : (opName === 'move' || opName === 'duplicates' || opName === 'sort_template') ? 'verschieben' : opName === 'ai_organize' ? 'anwenden' : 'umbenennen'}`}
                   </button>
                 )}
               </div>}
