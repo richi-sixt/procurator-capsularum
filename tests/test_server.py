@@ -336,3 +336,40 @@ def test_prefs_reject_unknown_values(client):
     assert client.put("/api/prefs", json={"theme": "pink"}).status_code == 422
     assert client.put("/api/prefs", json={"language": "fr"}).status_code == 422
     assert client.get("/api/prefs").json()["theme"] == "auto"
+
+
+def test_thumb_of_a_pdf_renders_the_first_page(client, folder):
+    import io
+
+    from PIL import Image
+    from test_extract import make_pdf
+
+    pdf = make_pdf(folder / "rechnung.pdf", "Rechnung Swisscom", pages=3)
+    r = client.get("/api/thumb", params={"path": str(pdf), "size": 200})
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+    with Image.open(io.BytesIO(r.content)) as out:
+        assert max(out.size) == 200 and out.size[1] in (133, 134)  # Seite 300 x 200 Punkte
+        assert out.convert("L").getextrema()[0] < 128  # der Text ist gezeichnet, nicht nur eine weisse Fläche
+
+
+def test_thumb_of_broken_empty_or_encrypted_pdf_is_415(client, folder):
+    for name, data in (("kaputt.pdf", b"%PDF-1.4\nnichts"), ("leer.pdf", b"")):
+        (folder / name).write_bytes(data)
+        assert client.get("/api/thumb", params={"path": str(folder / name)}).status_code == 415
+
+
+def test_thumb_of_a_huge_pdf_is_refused(client, folder, monkeypatch):
+    from test_extract import make_pdf
+
+    from procurator import thumbs
+
+    pdf = make_pdf(folder / "gross.pdf", "x")
+    monkeypatch.setattr(thumbs, "MAX_PDF_BYTES", 10)
+    assert client.get("/api/thumb", params={"path": str(pdf)}).status_code == 415
+
+
+def test_thumb_of_a_sensitive_pdf_is_refused(client, folder):
+    from test_extract import make_pdf
+
+    pdf = make_pdf(folder / "Steuererklärung.pdf", "Geheim")
+    assert client.get("/api/thumb", params={"path": str(pdf)}).status_code == 403

@@ -25,6 +25,7 @@ from .rename import (
     Sequence,
     Wildcard,
 )
+from .trash import TrashDuplicates
 
 
 @dataclass
@@ -57,6 +58,7 @@ class OperationSpec:
             "kind": self.cls.kind,
             "needsAnalysis": self.cls.needs_analysis,
             "sendsData": self.cls.sends_data,
+            "destructive": self.cls.destructive,
             "fields": [
                 {
                     "key": f.key, "label": tr(f.label), "type": f.type, "default": f.default,
@@ -192,6 +194,9 @@ SPECS += [
         Field("keep_structure", "Ordnerstruktur im Zielordner beibehalten", "bool", True),
         Field("min_size_kb", "Mindestgrösse in KB (0 = alle)", "number", 0),
     ], "Findet gleiche Dateien über ihren Inhalt und verschiebt alle bis auf eine. Zuerst «Analysieren»."),
+    OperationSpec("trash_duplicates", "Dubletten-Ordner in den Papierkorb legen", "Organisieren", TrashDuplicates, [],
+                  "Legt alle Dateien in «_Dubletten»-Ordnern des gewählten Ordners in den Papierkorb (Unterordner "
+                  "einbeziehen). Das Programm kann das nicht rückgängig machen, im Papierkorb geht «Zurücklegen»."),
     OperationSpec("cbr2cbz", "CBR → CBZ", "Konvertieren", CbrToCbz, [
         _OUT,
         Field("copy_cbz", "Vorhandene CBZ mitkopieren (nur mit Zielordner)", "bool", False),

@@ -8,7 +8,7 @@ auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. U
 
 > **Dokumentation:** [Anleitung](docs/anleitung.md) für Anwender, [Entwicklung](docs/entwicklung.md) für alle, die am Code arbeiten.
 >
-> **Stand:** frühe Version (0.1), in Entwicklung. Entwickelt und getestet unter macOS. Mach vor dem ersten
+> **Stand:** Version 1.0, in Entwicklung. Entwickelt und getestet unter macOS. Mach vor dem ersten
 > Einsatz auf wichtigen Daten ein Backup und lies immer die Vorschau.
 
 ## Was es kann
@@ -19,14 +19,18 @@ auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. U
 | **Verschieben** | In einen anderen Ordner, flach oder mit nachgebauter Ordnerstruktur. Zielordner werden angelegt, auch auf ein anderes Laufwerk |
 | **Nach Regeln sortieren** | Ohne KI in Ordner nach Vorlage sortieren, zum Beispiel `{type}/{date:%Y}` ergibt `Bilder/2024`. Platzhalter: Datum (bei Fotos das Aufnahmedatum), Dateityp, Endung, Anfangsbuchstabe, bisheriger Ordner |
 | **Konvertieren** | CBR → CBZ (Seiten bleiben bitidentisch), Bilder (JPG, PNG, WebP, HEIC, TIFF, BMP → JPG, PNG, WebP, optional verkleinern) |
-| **Dubletten** | Findet gleiche Dateien über ihren Inhalt und verschiebt alle bis auf eine in einen Ordner `_Dubletten`, nichts wird gelöscht. Ein lokaler Datei-Index sorgt dafür, dass so wenig wie möglich gelesen wird |
+| **Dubletten** | Findet gleiche Dateien über ihren Inhalt und verschiebt alle bis auf eine in einen Ordner `_Dubletten`, nichts wird gelöscht. Pro Zeile siehst du alle gleichen Dateien. Danach lässt sich `_Dubletten` in einer eigenen, bestätigten Aktion in den Papierkorb legen. Ein lokaler Datei-Index sorgt dafür, dass so wenig wie möglich gelesen wird |
 | **KI-Vorschläge** | Ein Sprachmodell schlägt Ordner und bessere Dateinamen vor, du prüfst und korrigierst in der Vorschau. Standardmässig mit einem lokalen Modell ([Ollama](https://ollama.com/)), optional mit Claude. Sensible Dateien werden nie gesendet. Die App lernt aus deinen Entscheidungen (angenommen, abgelehnt, korrigiert), lokal gespeichert und löschbar |
 | **Sicherheit** | Konflikterkennung (gleiche Zielnamen, vorhandene Dateien werden nie überschrieben), Verlauf mit Rückgängig, sensible Dateien werden markiert |
-| **Oberfläche** | Vorschau-Tabelle mit Checkbox pro Zeile, Fortschritt und Abbrechen bei langen Läufen, gespeicherte Einstellungen |
+| **Oberfläche** | Vorschau-Tabelle mit Checkbox pro Zeile, Vorschaubilder (Bilder und erste PDF-Seite) mit grosser Ansicht und Blättern, Datei im Finder zeigen, Fortschritt und Abbrechen bei langen Läufen, gespeicherte Einstellungen, Hell/Dunkel und Deutsch/English |
 
 Konvertierungen erzeugen neue Dateien, die Originale bleiben unverändert.
 
 ## Voraussetzungen
+
+**Desktop-App (macOS):** nichts, alles ist enthalten (auch SQLite). Gebaut ist sie für macOS 12 oder neuer auf Apple-Chips.
+
+**Aus dem Quellcode:**
 
 - [Python](https://www.python.org/) 3.11 oder neuer und [uv](https://docs.astral.sh/uv/)
 - [Node.js](https://nodejs.org/) 20.19 oder neuer (oder 22.12 oder neuer), nur um die Web-Oberfläche zu bauen
@@ -121,7 +125,7 @@ Dateien zeigen).
 - **Gleich heisst gleicher Inhalt**, nicht gleicher Name. Verglichen wird über einen lokalen Index: erst die Grösse, dann die ersten 64 KB, erst bei Gleichstand der ganze Inhalt (SHA-256). Unveränderte Dateien werden nie erneut gelesen.
 - **Zwei Schritte:** Das Lesen der Dateien heisst «Analysieren» und läuft mit Fortschritt im Hintergrund (in der Oberfläche ein Knopf, auf der Kommandozeile automatisch bei `--move`). Die Vorschau selbst liest nichts und bleibt schnell.
 - **Pro Gruppe bleibt genau eine Datei liegen.** Welche, bestimmst du: die älteste (Standard), die neueste, die mit dem kürzesten Pfad oder die erste alphabetisch.
-- **Verschoben, nicht gelöscht:** Die Kopien landen in `_Dubletten` im gewählten Ordner (oder in einem Zielordner deiner Wahl), mit nachgebauter Ordnerstruktur. Löschen kannst du sie danach selbst. «Rückgängig» holt sie zurück.
+- **Verschoben, nicht gelöscht:** Die Kopien landen in `_Dubletten` im gewählten Ordner (oder in einem Zielordner deiner Wahl), mit nachgebauter Ordnerstruktur. «Rückgängig» holt sie zurück. Zum Aufräumen gibt es die eigene Aktion **Dubletten-Ordner in den Papierkorb legen**: Sie fragt vorher nach und legt alles in den Papierkorb des Systems (nicht endgültig gelöscht). Das Programm kann das nicht rückgängig machen, im Papierkorb geht «Zurücklegen». Im Verlauf steht der Lauf ohne Rückgängig-Knopf.
 - Mehrere gewählte Ordner werden miteinander verglichen. Hardlinks und Symlinks gelten nicht als Kopien, leere Dateien auch nicht.
 
 ### KI-Vorschläge im Detail
@@ -198,12 +202,10 @@ Konflikterkennung und Rückgängig funktionieren deshalb für jede Operation gle
 - Die Vorschau-Tabelle zeichnet ab 200 Zeilen nur die sichtbaren. Mit 20000 Dateien steht sie nach etwa zwei Sekunden, die Berechnung des Plans auf dem Server und das Übertragen brauchen dabei den grössten Teil. Gemessen ist das nur auf macOS.
 - Ein Undo, das nur teilweise gelingt, lässt sich nicht wiederholen.
 - KI-Vorschläge: Die Ollama-Anbindung ist mit einem echten Modell getestet. Die Claude-Anbindung ist automatisch nur mit simulierten Antworten getestet und vom Autor einmal von Hand mit der echten API ausprobiert. Messungen zur Geschwindigkeit stehen noch aus.
+- Die Vorschau von PDF zeigt nur die erste Seite und nutzt dafür die Bibliothek pdfium. Videos haben noch keine Vorschau.
+- Die Hilfeseiten gibt es nur auf Deutsch, die Oberfläche und die Meldungen auf Deutsch und Englisch.
 - Stufe 2 der Datenschutzstufen liest keinen Text aus gescannten PDF (keine Texterkennung) und nicht aus alten Office-Formaten (`.doc`, `.xls`, `.ppt`).
 - Manche Ollama-Runner (zum Beispiel MLX) unterstützen kein erzwungenes Antwortformat. Dann liest das Programm die Antwort tolerant, was etwas fehleranfälliger ist.
-
-## Geplant
-
-PDF → Markdown und EPUB-Konvertierung.
 
 ## Lizenz
 

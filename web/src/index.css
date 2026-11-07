@@ -150,3 +150,5 @@ textarea { font: inherit; color: inherit; background: var(--surface); border: 1p
 /* Schmale Fenster (Handy): Kopfzeile bricht um statt abzuschneiden */
 header { flex-wrap: wrap; gap: .5rem; }
 .header-actions { flex-wrap: wrap; }
+
+button.danger { background: var(--warn); color: var(--accent-text); border-color: var(--warn); font-weight: 600; }

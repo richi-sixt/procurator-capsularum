@@ -111,6 +111,15 @@ EN: dict[str, str] = {
     "Zielordner muss ein absoluter Pfad sein": "Target folder must be an absolute path",
     "Zielordner muss ausserhalb des Quellordners liegen": "Target folder must be outside the source folder",
     "Liegt schon im richtigen Ordner": "Already in the right folder",
+    "Papierkorb": "Trash",
+    "Nicht in einem Dubletten-Ordner": "Not in a duplicates folder",
+    "Kommt in den Papierkorb": "Goes to the trash",
+    "im Papierkorb": "in the trash",
+    "Diese Dateien liegen im Papierkorb. Dort mit «Zurücklegen» wiederherstellen.":
+        "These files are in the trash. Restore them there with “Put Back”.",
+    "Dubletten-Ordner in den Papierkorb legen": "Move duplicates folders to the trash",
+    "Legt alle Dateien in «_Dubletten»-Ordnern des gewählten Ordners in den Papierkorb (Unterordner einbeziehen). Das Programm kann das nicht rückgängig machen, im Papierkorb geht «Zurücklegen».":
+        "Moves all files in “_Dubletten” folders of the chosen folder to the trash (include subfolders). The program cannot undo this; in the trash use “Put Back”.",
     # --- Konvertieren ------------------------------------------------------------------------
     "unar fehlgeschlagen: {error}": "unar failed: {error}",
     "lsar fehlgeschlagen: {error}": "lsar failed: {error}",

@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import type { Change, Status } from '../types'
 import { ESTIMATE, WINDOW_FROM, visibleRange } from '../windowing'
-import { isImage, thumbUrl } from '../thumbs'
+import { isPreviewable, thumbUrl } from '../thumbs'
 import { api } from '../api'
 import ImageDialog from './ImageDialog'
 import { useT } from '../i18n'
@@ -71,7 +71,7 @@ export default function PreviewTable(p: Props) {
     ? visibleRange(rows.map((c) => c.src), heights, scrollTop, viewport)
     : { start: 0, end: rows.length, before: 0, after: 0 }
   const shown = rows.slice(range.start, range.end)
-  const imageRows = rows.filter((c) => p.thumbs && !c.sensitive && isImage(c.srcName) && !broken.has(c.src))
+  const imageRows = rows.filter((c) => p.thumbs && !c.sensitive && isPreviewable(c.srcName) && !broken.has(c.src))
   const bigIndex = big ? imageRows.findIndex((c) => c.src === big) : -1
   const reveal = (path: string) => {
     setRevealError('')
@@ -126,7 +126,7 @@ export default function PreviewTable(p: Props) {
               </td>
               <td>
                 {p.draggable && <span className="grip" aria-hidden>⋮⋮ </span>}
-                {p.thumbs && !c.sensitive && isImage(c.srcName) && !broken.has(c.src) && (
+                {p.thumbs && !c.sensitive && isPreviewable(c.srcName) && !broken.has(c.src) && (
                   <button className="thumb-btn" aria-label={t('Vorschau {name}', { name: c.srcName })} title={t('Grösser ansehen')}
                     onClick={() => setBig(c.src)}>
                     <img className="thumb" src={thumbUrl(c.src)} alt="" loading="lazy" width={44} height={44}

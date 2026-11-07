@@ -16,6 +16,7 @@ from .rename import (
     Sequence,
     Wildcard,
 )
+from .trash import TrashDuplicates
 
 __all__ = [
     "AiOrganize",
@@ -34,6 +35,7 @@ __all__ = [
     "RemoveChars",
     "ReplaceText",
     "Sequence",
+    "TrashDuplicates",
     "SortByTemplate",
     "Wildcard",
 ]

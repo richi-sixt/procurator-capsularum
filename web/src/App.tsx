@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, type PlanInput } from './api'
 import AboutDialog from './components/AboutDialog'
+import ConfirmDialog from './components/ConfirmDialog'
 import FolderPicker from './components/FolderPicker'
 import HelpDialog from './components/HelpDialog'
 import HistoryPanel from './components/HistoryPanel'
 import OperationForm, { defaults, missingRequired } from './components/OperationForm'
 import PreviewTable from './components/PreviewTable'
 import { useI18n } from './i18n'
-import { isImage } from './thumbs'
+import { isPreviewable } from './thumbs'
 import SendDialog from './components/SendDialog'
 import SettingsDialog from './components/SettingsDialog'
 import type { Job, OperationSpec, Params, PlanResponse, Preset, SendPreview } from './types'
@@ -41,6 +42,7 @@ export default function App() {
   const [settings, setSettings] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [confirmTrash, setConfirmTrash] = useState(false) // Rückfrage vor dem Papierkorb
   const [sendInfo, setSendInfo] = useState<SendPreview | null>(null) // Bestätigung vor dem Senden
   const [job, setJob] = useState<Job | null>(null) // laufender Auftrag
   const [jobKind, setJobKind] = useState<'apply' | 'analyze'>('apply')
@@ -125,18 +127,21 @@ export default function App() {
     setNotice(''); setError(''); setJobKind('apply')
     try {
       const current = await track(await api.apply(input, [...disabled]))
-      const verb = spec?.kind === 'convert' ? t('konvertiert') : (opName === 'move' || opName === 'duplicates') ? t('verschoben') : opName === 'ai_organize' ? t('angewendet') : t('umbenannt')
+      const verb = spec?.kind === 'trash' ? t('in den Papierkorb gelegt') : spec?.kind === 'convert' ? t('konvertiert') : (opName === 'move' || opName === 'duplicates') ? t('verschoben') : opName === 'ai_organize' ? t('angewendet') : t('umbenannt')
       if (current.state === 'error') setError(current.error)
       else setNotice(
         `${current.ok} ${verb}${current.state === 'cancelled' ? ' ' + t('(abgebrochen)') : ''}` +
         (current.failed.length ? ', ' + t('{n} fehlgeschlagen ({details})', { n: current.failed.length, details: current.failed.map((f) => `${f.src}: ${f.error}`).join('; ') }) : '') +
-        '.' + (current.batchId ? ' ' + t('Lauf #{id}, im Verlauf rückgängig zu machen.', { id: current.batchId }) : ''),
+        '.' + (spec?.kind === 'trash' ? ' ' + t('Im Papierkorb lassen sie sich mit «Zurücklegen» wiederherstellen.') : current.batchId ? ' ' + t('Lauf #{id}, im Verlauf rückgängig zu machen.', { id: current.batchId }) : ''),
       )
       setDisabled(new Set()); setRefresh((n) => n + 1)
     } catch (e) {
       setError((e as Error).message)
     } finally { setJob(null) }
   }
+
+  // Aktionen, die sich nicht rückgängig machen lassen, brauchen vorher eine Bestätigung
+  const startApply = () => { if (spec?.destructive) setConfirmTrash(true); else void apply() }
 
   // Langsamer Vorbereitungsschritt (zum Beispiel Dateien für die Dublettensuche lesen)
   const analyze = async (confirmCloud = false) => {
@@ -280,7 +285,7 @@ export default function App() {
                 {typeof plan?.info?.duplicates === 'number' ? ` · ${t(plan.info.duplicates === 1 ? '{n} Kopie' : '{n} Kopien', { n: plan.info.duplicates })} ${t('in')} ${t(plan.info.groups === 1 ? '{n} Gruppe' : '{n} Gruppen', { n: plan.info.groups })} (${human(Number(plan.info.bytes))})` : ''}
               </span>
             )}
-            {plan?.changes.some((c) => isImage(c.srcName)) && (
+            {plan?.changes.some((c) => isPreviewable(c.srcName)) && (
               <label className="check push"><input type="checkbox" checked={prefs.thumbs}
                 onChange={(e) => setPrefs({ thumbs: e.target.checked })} />{t('Vorschaubilder')}</label>
             )}
@@ -338,8 +343,8 @@ export default function App() {
                     <button onClick={cancel}>{t('Abbrechen')}</button>
                   </>
                 ) : (
-                  <button className="primary" disabled={runnable === 0 || busy} onClick={() => void apply()}>
-                    {t('{n} Dateien {verb}', { n: runnable, verb: spec?.kind === 'convert' ? t('konvertieren') : (opName === 'move' || opName === 'duplicates' || opName === 'sort_template') ? t('verschieben') : opName === 'ai_organize' ? t('anwenden') : t('umbenennen') })}
+                  <button className="primary" disabled={runnable === 0 || busy} onClick={startApply}>
+                    {t('{n} Dateien {verb}', { n: runnable, verb: spec?.kind === 'trash' ? t('in den Papierkorb legen') : spec?.kind === 'convert' ? t('konvertieren') : (opName === 'move' || opName === 'duplicates' || opName === 'sort_template') ? t('verschieben') : opName === 'ai_organize' ? t('anwenden') : t('umbenennen') })}
                   </button>
                 )}
               </div>}
@@ -354,6 +359,13 @@ export default function App() {
         <button className="link" onClick={() => setAboutOpen(true)}>{t('Über das Programm')}</button>
       </footer>
 
+      {confirmTrash && (
+        <ConfirmDialog title={t('In den Papierkorb legen?')} confirmLabel={t('{n} Dateien in den Papierkorb', { n: runnable })}
+          onCancel={() => setConfirmTrash(false)} onConfirm={() => { setConfirmTrash(false); void apply() }}>
+          <p>{t('{n} Dateien ({size}) kommen in den Papierkorb des Systems.', { n: runnable, size: human(Number(plan?.info?.trashBytes ?? 0)) })}</p>
+          <p className="muted">{t('Das Programm kann das nicht rückgängig machen. Im Papierkorb lassen sich die Dateien mit «Zurücklegen» wiederherstellen, solange du ihn nicht leerst.')}</p>
+        </ConfirmDialog>
+      )}
       {sendInfo && <SendDialog info={sendInfo} onCancel={() => setSendInfo(null)} onConfirm={() => void analyze(true)} />}
       {picker && <FolderPicker start={paths[paths.length - 1]} onClose={() => setPicker(false)}
         onPick={(p) => { addPath(p); setPicker(false) }} />}

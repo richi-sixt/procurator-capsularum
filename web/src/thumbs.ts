@@ -1,7 +1,7 @@
-// Bildvorschau: Endungen, die der Server als Vorschaubild liefern kann, und die Adresse dazu.
-const IMAGE = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.tif', '.tiff', '.bmp', '.gif'])
+// Vorschau: Endungen, für die der Server ein Vorschaubild liefern kann (Bilder, bei PDF die erste Seite).
+const IMAGE = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.tif', '.tiff', '.bmp', '.gif', '.pdf'])
 
-export const isImage = (name: string): boolean => {
+export const isPreviewable = (name: string): boolean => {
   const i = name.lastIndexOf('.')
   return i >= 0 && IMAGE.has(name.slice(i).toLowerCase())
 }

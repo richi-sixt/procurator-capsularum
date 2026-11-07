@@ -155,6 +155,8 @@ class Journal:
         if row[0]:
             return 0, [tr("Lauf {id} wurde schon rückgängig gemacht", id=batch_id)]
 
+        if row[1] == "trash":  # liegt im Papierkorb des Systems, dort zurücklegen
+            return 0, [tr("Diese Dateien liegen im Papierkorb. Dort mit «Zurücklegen» wiederherstellen.")]
         if row[1] == "convert":
             return self._undo_convert(batch_id)
 

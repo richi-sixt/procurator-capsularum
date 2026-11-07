@@ -45,7 +45,9 @@ export default function HistoryPanel({ onClose, onChanged }: Props) {
                   #{b.id} · {b.operation} · {t('{n} Dateien', { n: b.count })}
                 </button>
                 <span className="muted small">{b.ts.replace('T', ' ')}</span>
-                {b.undone
+                {b.kind === 'trash'
+                  ? <span className="badge skip" title={t('Im Papierkorb mit «Zurücklegen» wiederherstellen')}>{t('Im Papierkorb')}</span>
+                  : b.undone
                   ? <span className="badge skip">{t('Rückgängig')}</span>
                   : <button onClick={() => void undo(b)}>{b.kind === 'convert' ? t('Erzeugte Dateien löschen') : t('Rückgängig machen')}</button>}
               </div>

@@ -15,7 +15,8 @@ export type OperationSpec = {
   name: string
   label: string
   group: string
-  kind: 'move' | 'convert'
+  kind: 'move' | 'convert' | 'trash'
+  destructive?: boolean // nicht rückgängig zu machen: vor dem Ausführen nachfragen
   needsAnalysis?: boolean
   sendsData?: boolean
   description: string
@@ -41,7 +42,7 @@ export type Change = {
 
 export type PlanResponse = {
   operation: string
-  kind?: 'move' | 'convert'
+  kind?: 'move' | 'convert' | 'trash'
   counts: Record<Status, number>
   sensitiveCount?: number
   info?: Record<string, number | string>
@@ -52,7 +53,7 @@ export type PlanResponse = {
 export type Params = Record<string, string | number | boolean | null>
 
 export type Batch = {
-  id: number; ts: string; operation: string; count: number; undone: boolean; kind: 'move' | 'convert'
+  id: number; ts: string; operation: string; count: number; undone: boolean; kind: 'move' | 'convert' | 'trash'
 }
 export type Preset = { name: string; operation: string; params: Params }
 export type Browse = { path: string; parent: string | null; home: string; dirs: string[]; fileCount: number }

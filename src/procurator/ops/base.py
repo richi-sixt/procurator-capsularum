@@ -16,7 +16,8 @@ class Operation(ABC):
     """Eine Operation berechnet pro Datei den neuen Dateinamen (oder None = kein Treffer)."""
 
     name: ClassVar[str]
-    kind: ClassVar[str] = "move"  # "move" (umbenennen) oder "convert" (neue Datei erzeugen)
+    kind: ClassVar[str] = "move"  # "move" (umbenennen), "convert" (neue Datei erzeugen) oder "trash" (Papierkorb)
+    destructive: ClassVar[bool] = False  # nicht rückgängig zu machen: die Oberfläche fragt vor dem Ausführen
     needs_analysis: ClassVar[bool] = False  # braucht einen eigenen, langsamen Vorbereitungsschritt
     sends_data: ClassVar[bool] = False  # schickt Dateiangaben an ein Sprachmodell
 

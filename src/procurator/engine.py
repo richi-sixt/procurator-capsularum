@@ -51,8 +51,9 @@ def make_plan(
 ) -> Plan:
     """Vorschau berechnen. Verändert nichts auf der Platte."""
     convert = op.kind == "convert"
+    trash = op.kind == "trash"
     plan = Plan(operation=op.name, params={**op.params(), "force_unique": force_unique},
-                kind=op.kind, runner=op.convert if convert else None)
+                kind=op.kind, runner=op.convert if convert or trash else None)
 
     op.prepare(items)
 
@@ -89,13 +90,15 @@ def make_plan(
         if not convert and dst == src:
             plan.changes.append(PlannedChange(src, None, Status.SKIP, tr("Name unverändert")))
             continue
-        problem = op.check(item) if convert else _target_problem(dst)
+        problem = op.check(item) if convert or trash else _target_problem(dst)
         if problem:
             plan.changes.append(PlannedChange(src, dst, Status.ERROR, problem))
         else:
             plan.changes.append(PlannedChange(src, dst, reason=op.note(item)))
 
-    if convert:
+    if trash:
+        pass  # kein Ziel auf der Platte, es gibt nichts zu verwechseln
+    elif convert:
         _resolve_convert(plan)
     else:
         _resolve_conflicts(plan, force_unique)
@@ -200,7 +203,7 @@ def apply_plan(
     result = Result()
     pairs: list[tuple[Path, Path]] = []
 
-    if plan.kind == "convert":
+    if plan.kind in ("convert", "trash"):
         assert plan.runner is not None
         for i, c in enumerate(todo):
             if cancel is not None and cancel.is_set():
@@ -210,7 +213,7 @@ def apply_plan(
                 on_progress(i, len(todo), c.src.name)
             assert c.dst is not None
             try:
-                if os.path.lexists(c.dst):
+                if plan.kind == "convert" and os.path.lexists(c.dst):
                     raise FileExistsError(tr("Ziel existiert bereits"))
                 plan.runner(c.src, c.dst)
                 result.done.append(c)

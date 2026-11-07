@@ -20,7 +20,7 @@ datas += [("../web/package.json", "web")]
 for name in ("react", "react-dom"):
     datas += [(f"../web/node_modules/{name}/package.json", f"web/node_modules/{name}")]
 
-hiddenimports = collect_submodules("uvicorn") + collect_submodules("procurator") + ["pillow_heif", "pypdf"]
+hiddenimports = collect_submodules("uvicorn") + collect_submodules("procurator") + ["pillow_heif", "pypdf", "pypdfium2", "send2trash"]
 
 a = Analysis(
     ["entry.py"],

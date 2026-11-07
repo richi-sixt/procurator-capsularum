@@ -4,6 +4,28 @@ Diese Anleitung erklärt, wie du mit Procurator Capsularum arbeitest, Aktion fü
 typischen Aufgaben. Installation und Start stehen im [README](../README.md). Diese Anleitung öffnet sich auch in der App mit dem
 Knopf **Hilfe** oben rechts, ohne Internet.
 
+## Voraussetzungen
+
+**Desktop-App (macOS):** Du brauchst nichts zu installieren, weder Python noch SQLite noch Node.js. Alles ist
+in der App enthalten, auch die Datenbank für Verlauf und Datei-Index (SQLite steckt im mitgelieferten Python).
+- macOS 12 (Monterey) oder neuer, auf einem Mac mit Apple-Chip (M1 oder neuer). Intel-Macs sind nicht abgedeckt.
+- Die App ist ohne Entwickler-Signatur gebaut: Eine selbst gebaute App öffnet sich normal, bei einer
+  heruntergeladenen fragt macOS zuerst (Rechtsklick, «Öffnen»). Siehe `desktop/README.md`.
+
+**Aus dem Quellcode (Browser oder Kommandozeile):** Python 3.11 oder neuer (SQLite gehört zu Python) und `uv`.
+Node.js 20.19 oder neuer nur, um die Oberfläche zu bauen. Alles Weitere steht im [README](../README.md).
+
+**Optional, nur für einzelne Funktionen:**
+
+| Funktion | Dafür nötig |
+|---|---|
+| CBR → CBZ | `unar` (macOS: `brew install unar`) |
+| KI-Vorschläge mit lokalem Modell | [Ollama](https://ollama.com/) mit einem geladenen Modell |
+| KI-Vorschläge mit Claude | Umgebungsvariable `ANTHROPIC_API_KEY` (und `uv sync --extra claude` aus dem Quellcode) |
+
+Alles andere (Umbenennen, Sortieren, Dubletten, Bilder konvertieren, Vorschaubilder inklusive PDF) funktioniert
+ohne zusätzliche Programme.
+
 ## Das Grundprinzip
 
 Jede Aktion läuft in drei Schritten:
@@ -32,7 +54,7 @@ Die Beispiele auf dieser Seite nutzen erfundene Demo-Dateien.
 | 🔒 sensibel | Die Datei gilt als sensibel (siehe [Datenschutz](#datenschutz)). Sie bleibt für Modelle unsichtbar |
 
 **Bildvorschau:** Bei Bilddateien (JPG, PNG, WebP, HEIC, TIFF, BMP, GIF) zeigt die Tabelle ein kleines Vorschaubild.
-Ein Klick öffnet es grösser, mit den Pfeiltasten (← →) oder den Knöpfen blätterst du durch alle Bilder der Liste, Esc schliesst. Mit «Vorschaubilder» oben lässt es sich abschalten (die Wahl bleibt
+Bei PDF zeigt es die erste Seite. Ein Klick öffnet es grösser, mit den Pfeiltasten (← →) oder den Knöpfen blätterst du durch alle Bilder der Liste, Esc schliesst. Mit «Vorschaubilder» oben lässt es sich abschalten (die Wahl bleibt
 gemerkt). Die Bilder werden vom lokalen Server verkleinert und verlassen den Rechner nie. Sensible Dateien
 bekommen kein Vorschaubild.
 
@@ -91,8 +113,13 @@ uv run pc sort '{type}/{date:%Y}' ORDNER --to ZIELORDNER
    dauert bei vielen Dateien).
 2. In der Vorschau prüfen, welche Datei pro Gruppe liegen bleibt (älteste, neueste, kürzester Pfad oder die
    erste alphabetisch).
-3. Ausführen. Die Kopien landen in `_Dubletten`, gelöscht wird nichts. Wenn alles stimmt, löschst du den
-   Ordner selbst.
+3. Ausführen. Die Kopien landen in `_Dubletten`, gelöscht wird nichts. Das lässt sich im Verlauf
+   rückgängig machen.
+4. Wenn alles stimmt, räumst du auf: Aktion **Dubletten-Ordner in den Papierkorb legen**, mit
+   «Unterordner einbeziehen». Die Vorschau zeigt alle Dateien in `_Dubletten`-Ordnern, vor dem Ausführen
+   fragt das Programm nach. Sie kommen in den **Papierkorb des Systems**, nicht endgültig weg. Das Programm
+   kann das nicht rückgängig machen, im Papierkorb geht «Zurücklegen». Leere `_Dubletten`-Ordner werden
+   danach entfernt. Im Verlauf steht der Lauf ohne Rückgängig-Knopf.
 
 ![Dubletten: die Kopie von «Einkaufsliste.txt» wird nach _Dubletten verschoben, der Grund steht in der Zeile](img/dubletten.png)
 
@@ -164,6 +191,7 @@ eine Fehlerzeile, nie einen Ordner.
 | In Ordner nach Vorlage sortieren | Sortiert nach festen Regeln, ohne KI. Dateiname bleibt |
 | KI-Vorschläge | Ein Sprachmodell schlägt Ordner und Namen vor, siehe [KI-Vorschläge](#ki-vorschläge) |
 | Dubletten verschieben | Verschiebt gleiche Dateien bis auf eine in `_Dubletten` |
+| Dubletten-Ordner in den Papierkorb legen | Legt alle Dateien in `_Dubletten`-Ordnern in den Papierkorb. Eigene Aktion mit Bestätigung, nicht rückgängig zu machen (siehe [Dubletten aufräumen](#dubletten-aufräumen)) |
 
 #### Ordner nach Vorlage
 
