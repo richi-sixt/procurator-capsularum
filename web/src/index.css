@@ -95,3 +95,27 @@ textarea { font: inherit; color: inherit; background: var(--surface); border: 1p
 .components { font-size: .8rem; margin-top: .5rem; }
 .components td, .components th { padding: .25rem .5rem; }
 .dialog ul { padding-left: 1.2rem; margin: .3rem 0; }
+
+/* Hilfe */
+.dialog.help { width: min(1000px, 100%); height: 85vh; max-height: 85vh; padding: 0; display: grid; grid-template-columns: 220px 1fr; overflow: hidden; position: relative; }
+.help-nav { border-right: 1px solid var(--border); padding: 1rem; overflow: auto; }
+.help-nav h2 { margin: 0 0 .6rem; font-size: 1rem; }
+.help-page { display: block; font-weight: 600; padding: .25rem 0; }
+.help-page.current { color: var(--text); }
+.help-toc { list-style: none; margin: 0 0 .6rem; padding: 0 0 0 .6rem; border-left: 2px solid var(--border); }
+.help-toc li { margin: .1rem 0; } .help-toc .link { font-size: .85rem; }
+.help-body { overflow: auto; padding: 1rem 1.6rem 2rem; min-width: 0; }
+.help-close { position: absolute; top: .6rem; right: .8rem; }
+.markdown { line-height: 1.55; max-width: 46rem; }
+.markdown h1 { font-size: 1.5rem; margin: .2rem 0 .8rem; }
+.markdown h2 { font-size: 1.2rem; text-transform: none; letter-spacing: 0; color: var(--text); margin: 1.8rem 0 .6rem; padding-top: .4rem; border-top: 1px solid var(--border); }
+.markdown h3 { font-size: 1rem; margin: 1.3rem 0 .4rem; color: var(--text); }
+.markdown table { border-collapse: collapse; width: 100%; font-size: .88rem; margin: .8rem 0; display: block; overflow-x: auto; }
+.markdown th, .markdown td { border: 1px solid var(--border); padding: .35rem .6rem; text-align: left; vertical-align: top; }
+.markdown th { background: var(--surface); }
+.markdown code { font-family: ui-monospace, Menlo, monospace; font-size: .85em; background: var(--row-hover); padding: .1em .35em; border-radius: 4px; }
+.markdown pre { background: var(--row-hover); padding: .7rem .9rem; border-radius: 8px; overflow: auto; }
+.markdown pre code { background: none; padding: 0; }
+.markdown img { max-width: 100%; border: 1px solid var(--border); border-radius: 8px; margin: .6rem 0; }
+.markdown a { color: var(--accent); }
+@media (max-width: 700px) { .dialog.help { grid-template-columns: 1fr; } .help-nav { display: none; } }

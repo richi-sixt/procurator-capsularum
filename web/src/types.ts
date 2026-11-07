@@ -129,3 +129,7 @@ export type About = {
   components: { python: Component[]; frontend: Component[] }
   system: { python: string; platform: string }
 }
+
+export type HelpPage = { name: string; title: string }
+export type HelpToc = { level: number; id: string; text: string }
+export type HelpContent = { name: string; title: string; html: string; toc: HelpToc[] }

@@ -1,7 +1,8 @@
 # Anleitung
 
 Diese Anleitung erklärt, wie du mit Procurator Capsularum arbeitest, Aktion für Aktion und mit
-typischen Aufgaben. Installation und Start stehen im [README](../README.md).
+typischen Aufgaben. Installation und Start stehen im [README](../README.md). Diese Anleitung öffnet sich auch in der App mit dem
+Knopf **Hilfe** oben rechts, ohne Internet.
 
 ## Das Grundprinzip
 
@@ -14,6 +15,11 @@ Jede Aktion läuft in drei Schritten:
    rückgängig machen.
 
 Die Vorschau verändert nie etwas. Sie rechnet bei jeder Eingabe neu.
+
+![Vorschau der Aktion «Name aus Vorlage»: links Ordner und Aktion, rechts pro Datei alt, neu und Status](img/vorschau-name-vorlage.png)
+
+Links wählst du Ordner und Aktion, rechts steht pro Datei das Alte, das Neue und der Status mit Grund.
+Die Beispiele auf dieser Seite nutzen erfundene Demo-Dateien.
 
 ### Status in der Vorschau
 
@@ -31,6 +37,8 @@ Namen eine Nummer. Sonst ändere die Aktion oder wähle die Zeilen ab.
 ### Rückgängig
 
 Unter **Verlauf** lässt sich jeder Lauf zurücknehmen.
+
+![Der Verlauf mit einem Lauf und dem Knopf «Rückgängig machen»](img/verlauf.png)
 
 - Umbenennen und Verschieben: Die Dateien kommen zurück, von der Aktion angelegte **leere** Ordner werden
   wieder entfernt.
@@ -64,6 +72,8 @@ erster Ebene (`{type}/{date:%Y}`) trennst du zusätzlich Bilder, Videos und Doku
 uv run pc sort '{type}/{date:%Y}' ORDNER --to ZIELORDNER
 ```
 
+![Vorschau von «In Ordner nach Vorlage sortieren»: jede Datei bekommt einen Zielordner wie Bilder/2024](img/sortieren-nach-vorlage.png)
+
 ### Dubletten aufräumen
 
 1. Aktion **Dubletten verschieben** wählen und **Analysieren** drücken (die Dateien werden gelesen, das
@@ -72,6 +82,8 @@ uv run pc sort '{type}/{date:%Y}' ORDNER --to ZIELORDNER
    erste alphabetisch).
 3. Ausführen. Die Kopien landen in `_Dubletten`, gelöscht wird nichts. Wenn alles stimmt, löschst du den
    Ordner selbst.
+
+![Dubletten: die Kopie von «Einkaufsliste.txt» wird nach _Dubletten verschoben, der Grund steht in der Zeile](img/dubletten.png)
 
 ### Comics von CBR zu CBZ
 
@@ -233,6 +245,8 @@ Ohne KI-Vorschläge verlassen keine Daten den Rechner. Der Server hört nur auf 
 | 1 | zusätzlich die Namen der Ordner |
 | 2 | zusätzlich ein kurzer Textauszug aus einfachen Textdateien (`.txt`, `.md`, `.csv` und ähnliche, keine PDFs) |
 
+![Einstellungen mit Datenschutzstufe, Lernen aus Entscheidungen und den Listen für sensible Dateien](img/einstellungen.png)
+
 ### Sensible Dateien
 
 Dateien, deren Name oder Ordnername mit einem Schlüsselwort **beginnt** (zum Beispiel Pass, Steuer, Konto), und
@@ -245,6 +259,11 @@ uv run pc sensitive ORDNER      # zeigt, welche Dateien betroffen wären
 ```
 
 ## Einstellungen und Dateien
+
+Unter **Über das Programm** (unten auf der Seite) stehen Version, Autor, Lizenz und die Lizenzen der
+verwendeten Bausteine. Der Block «Für Fehlermeldungen» lässt sich in eine Fehlermeldung kopieren.
+
+![Der Dialog «Über das Programm»](img/ueber-das-programm.png)
 
 Die Einstellungen öffnest du in der Oberfläche oder per Hand in `config.toml`. Pfad: `uv run pc config`.
 

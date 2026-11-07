@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, type PlanInput } from './api'
 import AboutDialog from './components/AboutDialog'
 import FolderPicker from './components/FolderPicker'
+import HelpDialog from './components/HelpDialog'
 import HistoryPanel from './components/HistoryPanel'
 import OperationForm, { defaults, missingRequired } from './components/OperationForm'
 import PreviewTable from './components/PreviewTable'
@@ -36,6 +37,7 @@ export default function App() {
   const [history, setHistory] = useState(false)
   const [settings, setSettings] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const [sendInfo, setSendInfo] = useState<SendPreview | null>(null) // Bestätigung vor dem Senden
   const [job, setJob] = useState<Job | null>(null) // laufender Auftrag
   const [jobKind, setJobKind] = useState<'apply' | 'analyze'>('apply')
@@ -201,6 +203,7 @@ export default function App() {
         <div className="header-actions">
           <button onClick={() => setSettings(true)}>Einstellungen</button>
           <button onClick={() => setHistory(true)}>Verlauf</button>
+          <button onClick={() => setHelpOpen(true)}>Hilfe</button>
         </div>
       </header>
 
@@ -336,6 +339,7 @@ export default function App() {
       {picker && <FolderPicker start={paths[paths.length - 1]} onClose={() => setPicker(false)}
         onPick={(p) => { addPath(p); setPicker(false) }} />}
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
       {settings && <SettingsDialog onClose={() => { setSettings(false); setRefresh((n) => n + 1) }} />}
       {history && <HistoryPanel onClose={() => setHistory(false)} onChanged={() => setRefresh((n) => n + 1)} />}
     </div>

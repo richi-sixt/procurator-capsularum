@@ -11,12 +11,13 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .. import about as aboutmod
 from .. import config as cfgmod
+from .. import help as helpmod
 from ..ai.learning import DecisionStore
 from ..ai.probe import probe
 from ..engine import apply_plan, make_plan
@@ -326,6 +327,25 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
     def about_info() -> dict[str, Any]:
         """Version, Autorin, Lizenz und die Lizenzen der verwendeten Bausteine."""
         return aboutmod.about()
+
+    @app.get("/api/help")
+    def help_pages() -> list[dict[str, str]]:
+        """Die Seiten der Hilfe (aus `docs/`), in der Reihenfolge des Menüs."""
+        return [{"name": p.name, "title": p.title} for p in helpmod.pages().values()]
+
+    @app.get("/api/help/img/{name}")
+    def help_image(name: str) -> FileResponse:
+        path = helpmod.image_path(name)
+        if path is None:
+            raise HTTPException(404, "Bild nicht gefunden")
+        return FileResponse(path, media_type="image/png")
+
+    @app.get("/api/help/{name}")
+    def help_page(name: str) -> dict[str, Any]:
+        page = helpmod.pages().get(name)
+        if page is None:
+            raise HTTPException(404, "Seite nicht gefunden")
+        return {"name": page.name, "title": page.title, "html": page.html, "toc": page.toc}
 
     @app.get("/api/learning")
     def learning_info() -> dict[str, Any]:

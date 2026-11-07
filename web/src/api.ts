@@ -1,5 +1,5 @@
 import type {
-  About, Batch, Browse, Config, ConfigResponse, Job, Learning, ProbeResult, SendPreview, OperationSpec, Params, PlanResponse, Preset,
+  About, Batch, Browse, Config, ConfigResponse, HelpContent, HelpPage, Job, Learning, ProbeResult, SendPreview, OperationSpec, Params, PlanResponse, Preset,
 } from './types'
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -51,6 +51,8 @@ export const api = {
     call<{ src: string; dst: string; folder: string }[]>(`/history/${id}`),
   undo: (id: number) =>
     call<{ restored: number; errors: string[] }>(`/undo/${id}`, { method: 'POST' }),
+  helpPages: () => call<HelpPage[]>('/help'),
+  helpPage: (name: string) => call<HelpContent>(`/help/${encodeURIComponent(name)}`),
   about: () => call<About>('/about'),
   learning: () => call<Learning>('/learning'),
   clearLearning: () => call<{ deleted: number }>('/learning', { method: 'DELETE' }),

@@ -56,6 +56,7 @@ src/procurator/
   fsops.py  journal.py     sicheres Verschieben, Verlauf und Rückgängig (SQLite)
   ops/                     Operationen, Register mit Formular-Beschreibung
   meta.py                  Datum aus EXIF und Dateistempeln
+  help.py                  Hilfe in der App: docs/*.md als HTML
   index.py                 Datei-Index und Dubletten
   config.py  privacy.py    Konfiguration, sensible Dateien
   ai/                      Anbieter (Ollama, Claude), Vorschläge, Prüfung, Lernen
@@ -165,6 +166,14 @@ Meldung ist also für Nutzer gedacht.
 
 - `web/src/App.tsx`: Zustand, Jobs mit Polling, Vorschau-Tabelle.
 - `web/src/api.ts` und `types.ts`: Aufrufe an `/api` und ihre Typen.
+- **Hilfe in der App:** Der Knopf «Hilfe» (`HelpDialog.tsx`) zeigt die Seiten aus `docs/`. `help.py` liest die
+  Markdown-Dateien, wandelt sie mit `markdown-it-py` in HTML um (rohes HTML wird nicht ausgegeben, nur Text) und
+  setzt Anker wie auf GitHub. Verweise auf andere Seiten bekommen `data-help`, Bilder gehen über
+  `/api/help/img/<name>`, Verweise aus `docs/` hinaus zeigen auf das Repository. Der Server liefert
+  `/api/help`, `/api/help/<seite>` und die Bilder. Menü: `anleitung`, `entwicklung` (Reihenfolge in
+  `help.ORDER`), die Übersicht `README.md` bleibt für GitHub. Die Wheel-Datei enthält `docs/` (siehe
+  `force-include` in `pyproject.toml`). `tests/test_help.py` prüft, dass jeder Verweis, Anker und jedes Bild
+  der echten Seiten auflösbar ist. Neue Seite: Datei in `docs/` anlegen und im Menü einordnen.
 - `web/src/windowing.ts`: Berechnung der sichtbaren Zeilen. `PreviewTable` zeichnet ab 200 Zeilen nur diese (plus Reserve) und füllt den Rest mit Platzhalterzeilen. Die Zeilenhöhen sind verschieden und werden gemessen, bis dahin gilt eine Schätzung. Bei kleineren Listen ist alles wie ohne Windowing. Es gibt noch keine JavaScript-Tests, die Funktion `visibleRange` ist rein und dafür vorbereitet.
 - `web/src/components/`: `OperationForm` (aus der Beschreibung der Registry), `PreviewTable`,
   `FolderPicker`, `HistoryPanel`, `SettingsDialog`, `SendDialog`, `AboutDialog`.

@@ -59,3 +59,16 @@ def test_no_private_or_forbidden_content(doc):
     assert "Vision.md" not in text
     assert "/Users/" not in text
     assert not re.search(r"sk-[A-Za-z0-9]{10,}", text)
+
+
+def test_images_exist_and_are_used():
+    """Jedes Bild in docs/img wird in der Anleitung gezeigt, und jedes gezeigte Bild gibt es."""
+    shown = set(re.findall(r"\]\(img/([^)]+)\)", GUIDE))
+    present = {p.name for p in (ROOT / "docs" / "img").glob("*.png")}
+    assert shown == present
+
+
+def test_images_are_small_and_png():
+    for p in (ROOT / "docs" / "img").glob("*"):
+        assert p.suffix == ".png" and p.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+        assert p.stat().st_size < 400_000, f"{p.name} ist zu gross für das Repository"
