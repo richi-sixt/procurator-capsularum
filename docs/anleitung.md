@@ -243,7 +243,7 @@ Ohne KI-Vorschläge verlassen keine Daten den Rechner. Der Server hört nur auf 
 |---|---|
 | 0 (Standard) | Dateiname, Endung, Grösse, Datum |
 | 1 | zusätzlich die Namen der Ordner |
-| 2 | zusätzlich ein kurzer Textauszug aus einfachen Textdateien (`.txt`, `.md`, `.csv` und ähnliche, keine PDFs) |
+| 2 | zusätzlich ein kurzer Textauszug (etwa 600 Zeichen) aus Textdateien (`.txt`, `.md`, `.csv` und ähnliche), PDF (erste drei Seiten) und Office-Dateien (`.docx`, `.xlsx`, `.pptx`). Gescannte PDF ohne Textschicht, verschlüsselte Dateien und alte Formate (`.doc`, `.xls`, `.ppt`) liefern keinen Auszug |
 
 ![Einstellungen mit Datenschutzstufe, Lernen aus Entscheidungen und den Listen für sensible Dateien](img/einstellungen.png)
 

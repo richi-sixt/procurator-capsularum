@@ -204,14 +204,14 @@ def test_level_1_adds_folder_context_but_not_sensitive_folders(tmp_path, fake):
     assert '"excerpt"' not in fake.calls[0][1]  # Auszüge gibt es erst ab Stufe 2
 
 
-def test_level_2_adds_text_excerpts_only_for_plain_text_files(folder, fake):
+def test_level_2_adds_excerpts_only_where_text_can_be_read(folder, fake):
     write(folder, "notiz.txt", "Einkaufsliste:\n  Milch\n  Brot")
     write(folder, "bild.jpg", "binär")
     write(folder, "rechnung.pdf", "PDF-Inhalt")
     organize(folder, cfg=cfgmod.parse({"ai": {"privacy_level": 2}}))
     rows = {f["name"]: f for f in json.loads(fake.calls[0][1])["files"]}
     assert rows["notiz.txt"]["excerpt"] == "Einkaufsliste: Milch Brot"
-    assert "excerpt" not in rows["bild.jpg"] and "excerpt" not in rows["rechnung.pdf"]
+    assert "excerpt" not in rows["bild.jpg"] and "excerpt" not in rows["rechnung.pdf"]  # PDF ohne echten Inhalt
 
 
 def test_excerpt_is_limited(folder):

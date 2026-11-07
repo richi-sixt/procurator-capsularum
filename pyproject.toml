@@ -16,6 +16,7 @@ dependencies = [
     "tomli-w>=1.2.0",
     "httpx>=0.28.1",
     "markdown-it-py>=3.0.0",
+    "pypdf>=7.0.0",
 ]
 
 [project.scripts]

@@ -3,7 +3,7 @@
 Datenschutz: Dateien erreichen ein Modell nur über `split_for_config` (sensible Dateien bleiben
 zurück). Was gesendet wird, bestimmt die Datenschutzstufe der Konfiguration:
 Stufe 0 nur Name, Endung, Grösse und Datum. Stufe 1 zusätzlich Ordnerkontext.
-Stufe 2 zusätzlich ein kurzer Text-Auszug aus einfachen Textdateien.
+Stufe 2 zusätzlich ein kurzer Text-Auszug aus Textdateien, PDF und Office-Dateien (siehe `extract`).
 """
 
 from __future__ import annotations
@@ -24,6 +24,8 @@ from ..model import FileItem
 from ..privacy import rules_from_config, split_for_config
 from ..scanner import natural_key
 from . import providers
+from .extract import EXTENSIONS as EXCERPT_EXTENSIONS
+from .extract import excerpt as read_excerpt
 from .learning import DecisionStore, Learning
 from .proposals import Proposal, ProposalStore
 from .providers import RESPONSE_SCHEMA, ProviderError
@@ -32,9 +34,6 @@ from .validate import validate
 PROMPT_VERSION = "1"
 BATCH_SIZE = 20
 MAX_EXISTING_FOLDERS = 40
-MAX_EXCERPT_CHARS = 600
-TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".log", ".xml", ".yml", ".yaml", ".ini",
-                   ".html", ".htm", ".tex", ".rtf"}
 DUP_DIR = "_Dubletten"
 
 ProgressFn = Callable[[int, int, str], None]
@@ -111,16 +110,6 @@ def _relative_folder(item: FileItem) -> str:
     return ""
 
 
-def _excerpt(path: Path) -> str:
-    try:
-        with open(path, "rb") as fh:
-            raw = fh.read(4096)
-    except OSError:
-        return ""
-    text = raw.decode("utf-8", errors="ignore")
-    return re.sub(r"\s+", " ", text).strip()[:MAX_EXCERPT_CHARS]
-
-
 def build_payload(items: list[FileItem], level: int) -> list[dict[str, Any]]:
     """Eine Zeile pro Datei, je nach Datenschutzstufe mit mehr oder weniger Angaben."""
     out: list[dict[str, Any]] = []
@@ -134,8 +123,8 @@ def build_payload(items: list[FileItem], level: int) -> list[dict[str, Any]]:
                                "size_kb": size_kb, "modified": modified}
         if level >= 1:
             row["current_folder"] = _relative_folder(item)
-        if level >= 2 and item.suffix.lower() in TEXT_EXTENSIONS:
-            excerpt = _excerpt(item.path)
+        if level >= 2 and item.suffix.lower() in EXCERPT_EXTENSIONS:
+            excerpt = read_excerpt(item.path)
             if excerpt:
                 row["excerpt"] = excerpt
         out.append(row)

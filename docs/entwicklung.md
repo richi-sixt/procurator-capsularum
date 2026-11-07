@@ -165,6 +165,7 @@ Meldung ist also für Nutzer gedacht.
 - `ai/providers.py`: `OllamaClient` (HTTP, fällt bei HTTP 501 auf «ohne Antwortformat» zurück) und
   `ClaudeClient` (offizielles SDK, `output_config` mit JSON-Schema). `make_client(cfg)` wählt nach Anbieter.
 - `ai/organizer.py`: Pakete zu 20 Dateien bilden, Prompt nach Stufe bauen, Antwort tolerant lesen, prüfen.
+- `ai/extract.py`: Textauszug für Stufe 2 aus Text, PDF (`pypdf`, erste 3 Seiten, höchstens 30 MB) und DOCX/XLSX/PPTX (ZIP, Tags entfernen, kein XML-Parser, pro Teil höchstens 512 KB entpackt). Fehler ergeben einen leeren Auszug.
 - `ai/proposals.py`: Vorschläge pro (Pfad, Lauf-Schlüssel), gültig solange Grösse und Änderungszeit gleich sind.
 - `ai/learning.py`: Entscheidungen merken und als Gewohnheiten und Beispiele in den Prompt geben.
 - Die Tests ersetzen das Modell durch einen Fake (`FakeClient` in `tests/test_ai.py`). Es gibt keinen

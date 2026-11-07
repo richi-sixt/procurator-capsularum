@@ -129,7 +129,7 @@ Dateien zeigen).
 - **Zwei Schritte:** «Analysieren» befragt das Modell (im Hintergrund, mit Fortschritt und Abbrechen) und speichert die Vorschläge lokal. Die Vorschau liest nur diese gespeicherten Vorschläge, sie ruft das Modell nie auf. Bekannte, unveränderte Dateien werden nicht erneut gefragt.
 - **Du behältst die Kontrolle:** Jede Zeile hat eine Checkbox, und das Ziel lässt sich mit ✎ von Hand ändern (`Ordner/Name`). Danach «Rückgängig» wie bei jeder Aktion. Ein leerer Ordnervorschlag lässt die Datei, wo sie liegt.
 - **Vorschläge werden geprüft, bevor sie gelten:** Ein Pfad ausserhalb des gewählten Ordners, absolute Pfade, `..`, versteckte Ordner und eine geänderte Dateiendung werden nie übernommen. Unbrauchbare Vorschläge erscheinen als Fehler und werden nicht ausgeführt.
-- **Was gesendet wird, bestimmt die Datenschutzstufe** (Einstellungen): Stufe 0 nur Dateiname, Endung, Grösse und Datum. Stufe 1 zusätzlich die Ordnernamen. Stufe 2 zusätzlich einen kurzen Textauszug aus einfachen Textdateien (`.txt`, `.md`, `.csv` und ähnliche).
+- **Was gesendet wird, bestimmt die Datenschutzstufe** (Einstellungen): Stufe 0 nur Dateiname, Endung, Grösse und Datum. Stufe 1 zusätzlich die Ordnernamen. Stufe 2 zusätzlich einen kurzen Textauszug aus Textdateien, PDF und Office-Dateien (`.docx`, `.xlsx`, `.pptx`).
 - **Sensible Dateien gehen nicht ans Modell**, auch ihre Namen nicht. Nur bei einem lokalen Modell lässt sich das in den Einstellungen bewusst abschalten.
 - **Lernen aus Entscheidungen:** Nach dem Anwenden merkt sich die App, was du übernommen, in der Vorschau abgewählt oder von Hand korrigiert hast. Bei der nächsten Analyse bekommt das Modell daraus Gewohnheiten («.pdf kommt meist nach Rechnungen») und wenige Beispiele mit. Gemerkt wird nur auf deinem Rechner, sensible Dateien nie. Bei Cloud gehen Beispiele erst ab Datenschutzstufe 1 mit und stehen in der Freigabe. Ausschalten in den Einstellungen, ansehen und löschen mit `pc learned`. Über die Kommandozeile (`pc organize --apply`) wird nichts gemerkt, dort fehlt die Prüfung in der Vorschau.
 - **Cloud nur mit Bestätigung:** Bei Claude zeigt ein Dialog vor jedem Lauf, was gesendet würde (Anzahl, Stufe, erste Einträge). Auf der Kommandozeile fragt `pc organize` nach oder verlangt `--yes-cloud`.
@@ -198,7 +198,7 @@ Konflikterkennung und Rückgängig funktionieren deshalb für jede Operation gle
 - Die Vorschau-Tabelle zeichnet ab 200 Zeilen nur die sichtbaren. Mit 20000 Dateien steht sie nach etwa zwei Sekunden, die Berechnung des Plans auf dem Server und das Übertragen brauchen dabei den grössten Teil. Gemessen ist das nur auf macOS.
 - Ein Undo, das nur teilweise gelingt, lässt sich nicht wiederholen.
 - KI-Vorschläge: Die Ollama-Anbindung ist mit einem echten Modell getestet. Die Claude-Anbindung ist automatisch nur mit simulierten Antworten getestet und vom Autor einmal von Hand mit der echten API ausprobiert. Messungen zur Geschwindigkeit stehen noch aus.
-- Stufe 2 der Datenschutzstufen liest nur einfache Textdateien, keine PDFs oder Office-Dokumente.
+- Stufe 2 der Datenschutzstufen liest keinen Text aus gescannten PDF (keine Texterkennung) und nicht aus alten Office-Formaten (`.doc`, `.xls`, `.ppt`).
 - Manche Ollama-Runner (zum Beispiel MLX) unterstützen kein erzwungenes Antwortformat. Dann liest das Programm die Antwort tolerant, was etwas fehleranfälliger ist.
 
 ## Geplant
