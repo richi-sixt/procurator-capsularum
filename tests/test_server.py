@@ -295,7 +295,8 @@ def test_reveal_runs_the_file_manager_command(client, folder, monkeypatch):
     monkeypatch.setattr(revealmod.subprocess, "Popen", lambda cmd, **kw: seen.append(cmd))
     (folder / "datei.txt").write_text("x")
     r = client.post("/api/reveal", json={"path": str(folder / "datei.txt")})
-    assert r.status_code == 200 and seen and str(folder / "datei.txt") in seen[0]
+    assert r.status_code == 200 and seen
+    assert str(folder) in " ".join(seen[0])  # macOS/Windows zeigen die Datei, Linux (xdg-open) ihren Ordner
 
 
 def test_reveal_refuses_relative_missing_and_cross_site(client, folder, monkeypatch):
