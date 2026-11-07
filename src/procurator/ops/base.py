@@ -57,6 +57,10 @@ class Operation(ABC):
         """Kurze Begründung für eine Datei, die ausgeführt wird (erscheint in der Vorschau)."""
         return ""
 
+    def related(self, item: FileItem) -> list[Path]:
+        """Andere Dateien, die zu dieser gehören (bei Dubletten die gleichen Dateien, die behaltene zuerst)."""
+        return []
+
     def info(self) -> dict[str, Any]:
         """Zusatzangaben zur ganzen Vorschau (zum Beispiel Anzahl Gruppen)."""
         return {}

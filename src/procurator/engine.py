@@ -8,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from .fsops import execute_moves, nearest_existing
+from .i18n import tr
 from .journal import Journal
 from .model import FileItem, Plan, PlannedChange, Result, Status
 from .ops.base import Operation
@@ -23,11 +24,11 @@ def _key(path: Path) -> tuple[Path, str]:
 
 def _invalid_name(name: str) -> str | None:
     if not name.strip():
-        return "Leerer Name"
+        return tr("Leerer Name")
     if name in {".", ".."} or "/" in name or "\0" in name:
-        return "Ungültiger Name"
+        return tr("Ungültiger Name")
     if len(name.encode()) > MAX_NAME_BYTES:
-        return "Name zu lang"
+        return tr("Name zu lang")
     return None
 
 
@@ -59,10 +60,10 @@ def make_plan(
     for index, item in enumerate(op.order(items)):
         src = item.path
         if not os.path.lexists(src):
-            plan.changes.append(PlannedChange(src, None, Status.ERROR, "Datei existiert nicht mehr"))
+            plan.changes.append(PlannedChange(src, None, Status.ERROR, tr("Datei existiert nicht mehr")))
             continue
         if not convert and not os.access(src.parent, os.W_OK):
-            plan.changes.append(PlannedChange(src, None, Status.ERROR, "Keine Schreibrechte im Ordner"))
+            plan.changes.append(PlannedChange(src, None, Status.ERROR, tr("Keine Schreibrechte im Ordner")))
             continue
         try:
             new_name = op.transform(item, index)
@@ -74,7 +75,7 @@ def make_plan(
             continue
         if new_name is None:
             reason = op.skip_reason(item) or (
-                "Nicht unterstützter Dateityp" if convert else "Kein Treffer")
+                tr("Nicht unterstützter Dateityp") if convert else tr("Kein Treffer"))
             plan.changes.append(PlannedChange(src, None, Status.SKIP, reason))
             continue
         if (problem := _invalid_name(new_name)) is not None:
@@ -86,7 +87,7 @@ def make_plan(
             plan.changes.append(PlannedChange(src, None, Status.ERROR, str(exc)))
             continue
         if not convert and dst == src:
-            plan.changes.append(PlannedChange(src, None, Status.SKIP, "Name unverändert"))
+            plan.changes.append(PlannedChange(src, None, Status.SKIP, tr("Name unverändert")))
             continue
         problem = op.check(item) if convert else _target_problem(dst)
         if problem:
@@ -105,6 +106,7 @@ def make_plan(
         item = by_path.get(c.src)
         if item is not None:
             c.editable = op.editable_target(item)
+            c.related = op.related(item)
     if sensitive is not None:  # nur eine Markierung, der Status bleibt unverändert
         hits = {item.path: sensitive.match(item) for item in items}
         for c in plan.changes:
@@ -116,9 +118,9 @@ def _target_problem(dst: Path) -> str | None:
     """Zielordner prüfen (bei gleichem Ordner wie die Quelle reicht die Prüfung davor)."""
     anchor = nearest_existing(dst.parent)
     if not anchor.is_dir():
-        return "Zielordner ist eine Datei"
+        return tr("Zielordner ist eine Datei")
     if not os.access(anchor, os.W_OK):
-        return "Keine Schreibrechte im Zielordner"
+        return tr("Keine Schreibrechte im Zielordner")
     return None
 
 
@@ -132,13 +134,13 @@ def _resolve_convert(plan: Plan) -> None:
         if c.status != Status.OK or c.dst is None:
             continue
         if c.dst == c.src:
-            c.status, c.reason = Status.ERROR, "Ziel ist die Quelle selbst"
+            c.status, c.reason = Status.ERROR, tr("Ziel ist die Quelle selbst")
         elif os.path.lexists(c.dst):
-            c.status, c.reason = Status.SKIP, "Ziel existiert bereits"
+            c.status, c.reason = Status.SKIP, tr("Ziel existiert bereits")
         elif seen[str(c.dst).casefold()] > 1:
-            c.status, c.reason = Status.CONFLICT, "Doppelter Zielname"
+            c.status, c.reason = Status.CONFLICT, tr("Doppelter Zielname")
         elif not os.access(nearest_existing(c.dst.parent), os.W_OK):
-            c.status, c.reason = Status.ERROR, "Keine Schreibrechte im Zielordner"
+            c.status, c.reason = Status.ERROR, tr("Keine Schreibrechte im Zielordner")
 
 
 def _resolve_conflicts(plan: Plan, force_unique: bool) -> None:
@@ -175,11 +177,11 @@ def _resolve_conflicts(plan: Plan, force_unique: bool) -> None:
                     _key(p) in assigned or _key(p) in staying or on_disk_blocked(src, p)
                 ),
             )
-            c.reason = (c.reason + " · " if c.reason else "") + "Nummer angehängt (Force Unique)"
+            c.reason = (c.reason + " · " if c.reason else "") + tr("Nummer angehängt (Force Unique)")
         elif counts[key] > 1 and not force_unique:
-            c.status, c.reason = Status.CONFLICT, "Doppelter Zielname"
+            c.status, c.reason = Status.CONFLICT, tr("Doppelter Zielname")
         elif blocked:
-            c.status, c.reason = Status.CONFLICT, "Zieldatei existiert bereits"
+            c.status, c.reason = Status.CONFLICT, tr("Zieldatei existiert bereits")
         if c.status == Status.OK:
             assigned.add(_key(c.dst))
 
@@ -209,7 +211,7 @@ def apply_plan(
             assert c.dst is not None
             try:
                 if os.path.lexists(c.dst):
-                    raise FileExistsError("Ziel existiert bereits")
+                    raise FileExistsError(tr("Ziel existiert bereits"))
                 plan.runner(c.src, c.dst)
                 result.done.append(c)
                 pairs.append((c.src, c.dst))

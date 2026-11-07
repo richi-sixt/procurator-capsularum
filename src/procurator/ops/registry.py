@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
+from ..i18n import tr
 from .base import Operation
 from .convert import CbrToCbz, ConvertImages
 from .dedupe import MoveDuplicates
@@ -50,17 +51,17 @@ class OperationSpec:
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
-            "label": self.label,
-            "group": self.group,
-            "description": self.description,
+            "label": tr(self.label),
+            "group": tr(self.group),
+            "description": tr(self.description) if self.description else "",
             "kind": self.cls.kind,
             "needsAnalysis": self.cls.needs_analysis,
             "sendsData": self.cls.sends_data,
             "fields": [
                 {
-                    "key": f.key, "label": f.label, "type": f.type, "default": f.default,
-                    "options": [{"value": v, "label": lbl} for v, lbl in f.options],
-                    "help": f.help, "required": f.required, "showIf": f.show_if,
+                    "key": f.key, "label": tr(f.label), "type": f.type, "default": f.default,
+                    "options": [{"value": v, "label": tr(lbl)} for v, lbl in f.options],
+                    "help": tr(f.help) if f.help else "", "required": f.required, "showIf": f.show_if,
                 }
                 for f in self.fields
             ],
@@ -215,7 +216,7 @@ def build(name: str, params: dict[str, Any]) -> Operation:
     """Operation aus API-Parametern bauen (mit Typumwandlung und Prüfung)."""
     spec = BY_NAME.get(name)
     if spec is None:
-        raise ParamError(f"Unbekannte Operation: {name}")
+        raise ParamError(tr("Unbekannte Operation: {name}", name=name))
     kwargs: dict[str, Any] = {}
     for f in spec.fields:
         value = params.get(f.key, f.default)
@@ -223,7 +224,7 @@ def build(name: str, params: dict[str, Any]) -> Operation:
             try:
                 value = int(value if value not in (None, "") else (f.default or 0))
             except (TypeError, ValueError) as exc:
-                raise ParamError(f"{f.label}: Zahl erwartet") from exc
+                raise ParamError(tr("{label}: Zahl erwartet", label=tr(f.label))) from exc
         elif f.type == "bool":
             value = bool(value)
         elif f.type == "date":
@@ -233,16 +234,16 @@ def build(name: str, params: dict[str, Any]) -> Operation:
                 try:
                     value = date.fromisoformat(str(value))
                 except ValueError as exc:
-                    raise ParamError(f"{f.label}: Datum als JJJJ-MM-TT erwartet") from exc
+                    raise ParamError(tr("{label}: Datum als JJJJ-MM-TT erwartet", label=tr(f.label))) from exc
         elif f.type == "select":
             if value not in {v for v, _ in f.options}:
-                raise ParamError(f"{f.label}: ungültiger Wert")
+                raise ParamError(tr("{label}: ungültiger Wert", label=tr(f.label)))
         else:  # text, folder
             value = "" if value is None else str(value)
         kwargs[f.key] = value
     for f in spec.fields:
         if f.required and kwargs[f.key] in ("", None):
-            raise ParamError(f"{f.label} fehlt")
+            raise ParamError(tr("{label} fehlt", label=tr(f.label)))
     try:
         return spec.cls(**kwargs)
     except ValueError as exc:  # zum Beispiel eine ungültige Vorlage

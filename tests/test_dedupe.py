@@ -210,3 +210,37 @@ def test_two_selected_folders_are_compared_with_each_other(tmp_path):
     ok = [c for c in plan.changes if c.status == Status.OK]
     assert len(ok) == 1 and ok[0].src == b / "x.bin"
     assert ok[0].dst == b / "_Dubletten" / "x.bin"  # _Dubletten im Ordner der Kopie
+
+
+def test_related_lists_the_whole_group_with_the_kept_file_first(folder):
+    keeper = write(folder, "alt/foto.jpg", b"inhalt" * 100, mtime=1000)
+    b = write(folder, "mitte/foto2.jpg", b"inhalt" * 100, mtime=2000)
+    c = write(folder, "neu/foto3.jpg", b"inhalt" * 100, mtime=3000)
+    write(folder, "einzeln.jpg", b"anders")
+    rows = by_name(run(MoveDuplicates(), folder))
+    assert rows["foto2.jpg"].related == [keeper, c]  # behaltene zuerst, sich selbst nie
+    assert rows["foto3.jpg"].related == [keeper, b]
+    assert rows["foto.jpg"].related == [b, c]  # die behaltene Datei kennt ihre Kopien
+    assert rows["einzeln.jpg"].related == []
+
+
+def test_related_is_in_the_server_response_and_capped(folder, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from procurator.journal import Journal
+    from procurator.server import app as appmod
+
+    monkeypatch.setattr(appmod, "RELATED_MAX", 2)
+    write(folder, "a/x.bin", b"gleich" * 50, mtime=1000)
+    for i in range(4):
+        write(folder, f"k{i}/x{i}.bin", b"gleich" * 50, mtime=2000 + i)
+    client = TestClient(appmod.create_app(Journal(folder.parent / "j.db")))
+    payload = {"paths": [str(folder)], "recursive": True, "operation": "duplicates", "params": {}}
+    job = client.post("/api/analyze", json=payload).json()
+    for _ in range(100):
+        if client.get(f"/api/jobs/{job['id']}").json()["state"] != "running":
+            break
+    rows = {c["srcName"]: c for c in client.post("/api/plan", json=payload).json()["changes"]}
+    copy = rows["x0.bin"]
+    assert len(copy["related"]) == 2 and copy["relatedTotal"] == 4
+    assert copy["related"][0].endswith("a/x.bin")

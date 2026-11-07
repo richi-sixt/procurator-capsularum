@@ -9,6 +9,8 @@ import uuid
 from pathlib import Path
 from typing import NamedTuple
 
+from .i18n import tr
+
 Pair = tuple[Path, Path]
 
 
@@ -49,9 +51,9 @@ def _copy_verify_delete(src: Path, dst: Path) -> None:
     try:
         shutil.copy2(src, part)
         if not filecmp.cmp(src, part, shallow=False):
-            raise OSError("Kopie weicht vom Original ab")
+            raise OSError(tr("Kopie weicht vom Original ab"))
         if os.path.lexists(dst):
-            raise FileExistsError(f"Ziel existiert bereits: {dst.name}")
+            raise FileExistsError(tr("Ziel existiert bereits: {name}", name=dst.name))
         os.rename(part, dst)
     except BaseException:
         part.unlink(missing_ok=True)
@@ -59,7 +61,7 @@ def _copy_verify_delete(src: Path, dst: Path) -> None:
     try:
         src.unlink()
     except OSError as exc:
-        raise OSError(f"Kopie liegt im Ziel, Original konnte nicht gelöscht werden: {exc}") from exc
+        raise OSError(tr("Kopie liegt im Ziel, Original konnte nicht gelöscht werden: {error}", error=exc)) from exc
 
 
 def execute_moves(pairs: list[Pair]) -> MoveOutcome:
@@ -99,7 +101,7 @@ def execute_moves(pairs: list[Pair]) -> MoveOutcome:
         src, dst = pair
         try:
             if os.path.lexists(dst):
-                raise FileExistsError(f"Ziel existiert bereits: {dst.name}")
+                raise FileExistsError(tr("Ziel existiert bereits: {name}", name=dst.name))
             created += _make_dirs(dst.parent)
             os.rename(tmp, dst)
             done.append(pair)

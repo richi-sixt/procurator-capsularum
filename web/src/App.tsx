@@ -6,6 +6,8 @@ import HelpDialog from './components/HelpDialog'
 import HistoryPanel from './components/HistoryPanel'
 import OperationForm, { defaults, missingRequired } from './components/OperationForm'
 import PreviewTable from './components/PreviewTable'
+import { useI18n } from './i18n'
+import { isImage } from './thumbs'
 import SendDialog from './components/SendDialog'
 import SettingsDialog from './components/SettingsDialog'
 import type { Job, OperationSpec, Params, PlanResponse, Preset, SendPreview } from './types'
@@ -18,6 +20,7 @@ const human = (n: number) => {
 }
 
 export default function App() {
+  const { t, tx, lang, prefs, setPrefs } = useI18n()
   const [specs, setSpecs] = useState<OperationSpec[]>([])
   const [presets, setPresets] = useState<Preset[]>([])
   const [paths, setPaths] = useState<string[]>([])
@@ -49,10 +52,10 @@ export default function App() {
   useEffect(() => {
     api.operations().then((ops) => {
       setSpecs(ops)
-      setParams(defaults(ops.find((o) => o.name === 'replace')!))
-    }).catch((e: Error) => setError(`Server nicht erreichbar: ${e.message}`))
+      setParams((cur) => (Object.keys(cur).length ? cur : defaults(ops.find((o) => o.name === 'replace')!)))
+    }).catch((e: Error) => setError(t('Server nicht erreichbar: {error}', { error: e.message })))
     void api.presets().then(setPresets).catch(() => undefined)
-  }, [])
+  }, [lang]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const input: PlanInput = useMemo(
     () => ({ paths, recursive, operation: opName, params, force_unique: forceUnique, order }),
@@ -86,7 +89,7 @@ export default function App() {
       })
     }, 250)
     return () => { clearTimeout(t); ctl.abort() }
-  }, [input, spec, params, paths, recursive, opName, refresh])
+  }, [input, spec, params, paths, recursive, opName, refresh, lang])
 
   const missing = spec ? missingRequired(spec, params) : []
   const sortCustom = opName === 'sequence' && params.sort === 'custom'
@@ -122,12 +125,12 @@ export default function App() {
     setNotice(''); setError(''); setJobKind('apply')
     try {
       const current = await track(await api.apply(input, [...disabled]))
-      const verb = spec?.kind === 'convert' ? 'konvertiert' : (opName === 'move' || opName === 'duplicates') ? 'verschoben' : opName === 'ai_organize' ? 'angewendet' : 'umbenannt'
+      const verb = spec?.kind === 'convert' ? t('konvertiert') : (opName === 'move' || opName === 'duplicates') ? t('verschoben') : opName === 'ai_organize' ? t('angewendet') : t('umbenannt')
       if (current.state === 'error') setError(current.error)
       else setNotice(
-        `${current.ok} ${verb}${current.state === 'cancelled' ? ' (abgebrochen)' : ''}` +
-        (current.failed.length ? `, ${current.failed.length} fehlgeschlagen (${current.failed.map((f) => `${f.src}: ${f.error}`).join('; ')})` : '') +
-        '.' + (current.batchId ? ` Lauf #${current.batchId}, im Verlauf rückgängig zu machen.` : ''),
+        `${current.ok} ${verb}${current.state === 'cancelled' ? ' ' + t('(abgebrochen)') : ''}` +
+        (current.failed.length ? ', ' + t('{n} fehlgeschlagen ({details})', { n: current.failed.length, details: current.failed.map((f) => `${f.src}: ${f.error}`).join('; ') }) : '') +
+        '.' + (current.batchId ? ' ' + t('Lauf #{id}, im Verlauf rückgängig zu machen.', { id: current.batchId }) : ''),
       )
       setDisabled(new Set()); setRefresh((n) => n + 1)
     } catch (e) {
@@ -142,8 +145,8 @@ export default function App() {
       const current = await track(await api.analyze({ ...input, confirm_cloud: confirmCloud }))
       if (current.state === 'error') setError(current.error)
       else setNotice(current.state === 'cancelled'
-        ? 'Analyse abgebrochen. Was schon gelesen ist, bleibt gespeichert, du kannst später weitermachen.'
-        : 'Analyse fertig.')
+        ? t('Analyse abgebrochen. Was schon gelesen ist, bleibt gespeichert, du kannst später weitermachen.')
+        : t('Analyse fertig.'))
       if (params.reanalyze) setParams((cur) => ({ ...cur, reanalyze: false })) // «Neu berechnen» gilt nur einmal
       setRefresh((n) => n + 1)
     } catch (e) {
@@ -171,7 +174,7 @@ export default function App() {
   const cancel = () => { if (job) void api.cancelJob(job.id) }
 
   const savePreset = async () => {
-    const name = window.prompt('Name für diese Einstellung:')?.trim()
+    const name = window.prompt(t('Name für diese Einstellung:'))?.trim()
     if (!name) return
     await api.savePreset({ name, operation: opName, params })
     setPresets(await api.presets())
@@ -201,33 +204,44 @@ export default function App() {
           Procurator Capsularum
         </h1>
         <div className="header-actions">
-          <button onClick={() => setSettings(true)}>Einstellungen</button>
-          <button onClick={() => setHistory(true)}>Verlauf</button>
-          <button onClick={() => setHelpOpen(true)}>Hilfe</button>
+          <button onClick={() => setSettings(true)}>{t('Einstellungen')}</button>
+          <button onClick={() => setHistory(true)}>{t('Verlauf')}</button>
+          <button onClick={() => setHelpOpen(true)}>{t('Hilfe')}</button>
+          <button className="icon-btn" aria-label={t('Darstellung wechseln')}
+            title={`${t('Darstellung')}: ${prefs.theme === 'auto' ? t('System') : prefs.theme === 'light' ? t('Hell') : t('Dunkel')}`}
+            onClick={() => setPrefs({ theme: prefs.theme === 'auto' ? 'light' : prefs.theme === 'light' ? 'dark' : 'auto' })}>
+            {prefs.theme === 'auto' ? '◐' : prefs.theme === 'light' ? '☀' : '☾'}
+          </button>
+          <select className="lang-select" aria-label={t('Sprache')} value={prefs.language}
+            onChange={(e) => setPrefs({ language: e.target.value as 'auto' | 'de' | 'en' })}>
+            <option value="auto">{t('Auto')}</option>
+            <option value="de">Deutsch</option>
+            <option value="en">English</option>
+          </select>
         </div>
       </header>
 
       <div className="layout">
-        <section className="panel" aria-label="Einstellungen">
-          <h2>1. Ordner</h2>
+        <section className="panel" aria-label={t('Einstellungen')}>
+          <h2>{t('1. Ordner')}</h2>
           <div className="path-add">
-            <input value={pathText} placeholder="/Pfad/zum/Ordner" spellCheck={false}
+            <input value={pathText} placeholder={t('/Pfad/zum/Ordner')} spellCheck={false}
               onChange={(e) => setPathText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addPath(pathText)} />
-            <button onClick={() => addPath(pathText)} disabled={!pathText.trim()}>Hinzufügen</button>
-            <button onClick={() => setPicker(true)}>Wählen …</button>
+            <button onClick={() => addPath(pathText)} disabled={!pathText.trim()}>{t('Hinzufügen')}</button>
+            <button onClick={() => setPicker(true)}>{t('Wählen …')}</button>
           </div>
           <ul className="chips">
             {paths.map((p) => (
-              <li key={p}>{p}<button className="link" aria-label={`${p} entfernen`}
+              <li key={p}>{p}<button className="link" aria-label={t('{path} entfernen', { path: p })}
                 onClick={() => { setPaths(paths.filter((x) => x !== p)); setOrder(null) }}>✕</button></li>
             ))}
           </ul>
           <label className="check"><input type="checkbox" checked={recursive}
-            onChange={(e) => { setRecursive(e.target.checked); setOrder(null) }} />Unterordner einbeziehen</label>
+            onChange={(e) => { setRecursive(e.target.checked); setOrder(null) }} />{t('Unterordner einbeziehen')}</label>
 
-          <h2>2. Aktion</h2>
-          <select aria-label="Aktion" value={opName} onChange={(e) => chooseOp(e.target.value)}>
+          <h2>{t('2. Aktion')}</h2>
+          <select aria-label={t('Aktion')} value={opName} onChange={(e) => chooseOp(e.target.value)}>
             {groups.map((g) => (
               <optgroup key={g} label={g}>
                 {specs.filter((s) => s.group === g).map((s) => <option key={s.name} value={s.name}>{s.label}</option>)}
@@ -236,38 +250,42 @@ export default function App() {
           </select>
           {spec && <OperationForm spec={spec} params={params} onChange={setParams} />}
           <label className="check"><input type="checkbox" checked={forceUnique}
-            onChange={(e) => setForceUnique(e.target.checked)} />Bei Kollision Nummer anhängen</label>
+            onChange={(e) => setForceUnique(e.target.checked)} />{t('Bei Kollision Nummer anhängen')}</label>
 
-          <h2>Gespeichert</h2>
+          <h2>{t('Gespeichert')}</h2>
           <div className="presets">
-            <select aria-label="Gespeicherte Einstellung" value="" onChange={(e) => loadPreset(e.target.value)}>
-              <option value="">Laden …</option>
+            <select aria-label={t('Gespeicherte Einstellung')} value="" onChange={(e) => loadPreset(e.target.value)}>
+              <option value="">{t('Laden …')}</option>
               {presets.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
             </select>
-            <button onClick={() => void savePreset()} disabled={!spec || missing.length > 0}>Speichern</button>
+            <button onClick={() => void savePreset()} disabled={!spec || missing.length > 0}>{t('Speichern')}</button>
           </div>
           {presets.length > 0 && (
             <ul className="chips">
               {presets.map((p) => (
-                <li key={p.name}>{p.name}<button className="link" aria-label={`${p.name} löschen`}
+                <li key={p.name}>{p.name}<button className="link" aria-label={t('{name} löschen', { name: p.name })}
                   onClick={() => void deletePreset(p.name)}>✕</button></li>
               ))}
             </ul>
           )}
         </section>
 
-        <main className="panel" aria-label="Vorschau">
+        <main className="panel" aria-label={t('Vorschau')}>
           <div className="main-head">
-            <h2>3. Vorschau</h2>
+            <h2>{t('3. Vorschau')}</h2>
             {counts && !listing && (
               <span className="muted">
-                {counts.ok} bereit · {counts.skip} übersprungen · {counts.conflict} Konflikte · {counts.error} Fehler
-                {plan?.sensitiveCount ? ` · 🔒 ${plan.sensitiveCount} sensibel` : ''}
-                {typeof plan?.info?.duplicates === 'number' ? ` · ${plan.info.duplicates} Kopie${plan.info.duplicates === 1 ? '' : 'n'} in ${plan.info.groups} Gruppe${plan.info.groups === 1 ? '' : 'n'} (${human(Number(plan.info.bytes))})` : ''}
+                {t('{ok} bereit · {skip} übersprungen · {conflict} Konflikte · {error} Fehler', counts)}
+                {plan?.sensitiveCount ? ` · 🔒 ${t('{n} sensibel', { n: plan.sensitiveCount })}` : ''}
+                {typeof plan?.info?.duplicates === 'number' ? ` · ${t(plan.info.duplicates === 1 ? '{n} Kopie' : '{n} Kopien', { n: plan.info.duplicates })} ${t('in')} ${t(plan.info.groups === 1 ? '{n} Gruppe' : '{n} Gruppen', { n: plan.info.groups })} (${human(Number(plan.info.bytes))})` : ''}
               </span>
             )}
-            <label className="check push"><input type="checkbox" checked={showSkipped}
-              onChange={(e) => setShowSkipped(e.target.checked)} />Übersprungene zeigen</label>
+            {plan?.changes.some((c) => isImage(c.srcName)) && (
+              <label className="check push"><input type="checkbox" checked={prefs.thumbs}
+                onChange={(e) => setPrefs({ thumbs: e.target.checked })} />{t('Vorschaubilder')}</label>
+            )}
+            <label className="check"><input type="checkbox" checked={showSkipped}
+              onChange={(e) => setShowSkipped(e.target.checked)} />{t('Übersprungene zeigen')}</label>
           </div>
 
           {error && <p className="error" role="alert">{error}</p>}
@@ -275,52 +293,53 @@ export default function App() {
           {plan?.needsAnalysis && !listing && (
             busy && job && jobKind === 'analyze' ? (
               <div className="banner" role="status">
-                <span>Analyse läuft …</span>
-                <progress max={Math.max(job.total, 1)} value={job.done} aria-label="Fortschritt der Analyse" />
+                <span>{t('Analyse läuft …')}</span>
+                <progress max={Math.max(job.total, 1)} value={job.done} aria-label={t('Fortschritt der Analyse')} />
                 <span className="muted small">{job.done}/{job.total} {job.current}</span>
-                <button onClick={cancel}>Abbrechen</button>
+                <button onClick={cancel}>{t('Abbrechen')}</button>
               </div>
             ) : Number(plan.info?.pendingFiles ?? 0) > 0 ? (
               <div className="banner">
                 <span>
                   {typeof plan.info?.analysisHint === 'string' ? plan.info.analysisHint : (
                     <>
-                      Für die Suche müssen noch <strong>{Number(plan.info?.pendingFiles)}</strong> Dateien gelesen werden
-                      (etwa {human(Number(plan.info?.pendingBytes ?? 0))}). Schon bekannte Dateien werden nicht erneut gelesen.
+                      {tx('Für die Suche müssen noch {n} Dateien gelesen werden (etwa {size}). Schon bekannte Dateien werden nicht erneut gelesen.', {
+                        n: <strong>{Number(plan.info?.pendingFiles)}</strong>, size: human(Number(plan.info?.pendingBytes ?? 0)),
+                      })}
                     </>
                   )}
                 </span>
-                <button className="primary" onClick={() => void startAnalysis()} disabled={busy}>Analysieren</button>
+                <button className="primary" onClick={() => void startAnalysis()} disabled={busy}>{t('Analysieren')}</button>
               </div>
             ) : null
           )}
-          {paths.length === 0 && <p className="empty">Wähle links einen Ordner, dann eine Aktion.</p>}
-          {listing && plan && plan.changes.length > 0 && <p className="muted small">{plan.changes.length} Dateien. Fülle links die Aktion aus ({missing.join(', ')}), dann erscheint die Vorschau der neuen Namen.</p>}
-          {plan && plan.changes.length === 0 && <p className="empty">Keine Dateien gefunden.</p>}
+          {paths.length === 0 && <p className="empty">{t('Wähle links einen Ordner, dann eine Aktion.')}</p>}
+          {listing && plan && plan.changes.length > 0 && <p className="muted small">{t('{n} Dateien. Fülle links die Aktion aus ({missing}), dann erscheint die Vorschau der neuen Namen.', { n: plan.changes.length, missing: missing.join(', ') })}</p>}
+          {plan && plan.changes.length === 0 && <p className="empty">{t('Keine Dateien gefunden.')}</p>}
           {plan && !listing && plan.changes.length > 0 && counts && counts.ok + counts.conflict + counts.error === 0 && !showSkipped && !Number(plan.info?.pendingFiles ?? 0) && (
-            <p className="empty">Nichts zu tun: alle {counts.skip} Dateien werden übersprungen. «Übersprungene zeigen» nennt die Gründe.</p>
+            <p className="empty">{t('Nichts zu tun: alle {n} Dateien werden übersprungen. «Übersprungene zeigen» nennt die Gründe.', { n: counts.skip })}</p>
           )}
 
           {plan && plan.changes.length > 0 && (
             <>
-              {sortCustom && <p className="muted small">Zeilen per Ziehen umsortieren: bestimmt die Nummerierung.</p>}
-              <PreviewTable changes={plan.changes} showSkipped={showSkipped || listing} listing={listing}
+              {sortCustom && <p className="muted small">{t('Zeilen per Ziehen umsortieren: bestimmt die Nummerierung.')}</p>}
+              <PreviewTable changes={plan.changes} thumbs={prefs.thumbs} showSkipped={showSkipped || listing} listing={listing}
                   showFolder={recursive || paths.length > 1}
                   disabled={disabled}
                   onToggle={(s) => setDisabled((d) => { const n = new Set(d); if (n.has(s)) n.delete(s); else n.add(s); return n })}
                   onToggleAll={(on) => setDisabled(on ? new Set() : new Set(plan.changes.filter((c) => c.status === 'ok').map((c) => c.src)))}
                   draggable={sortCustom} onReorder={setOrder} onEdit={opName === 'ai_organize' ? editTarget : undefined} />
               {!listing && <div className="actionbar">
-                <span className="muted">{runnable} von {counts?.ok ?? 0} ausgewählt</span>
+                <span className="muted">{t('{n} von {total} ausgewählt', { n: runnable, total: counts?.ok ?? 0 })}</span>
                 {busy && job && jobKind === 'apply' ? (
                   <>
-                    <progress max={Math.max(job.total, 1)} value={job.done} aria-label="Fortschritt" />
+                    <progress max={Math.max(job.total, 1)} value={job.done} aria-label={t('Fortschritt')} />
                     <span className="muted small">{job.done}/{job.total} {job.current}</span>
-                    <button onClick={cancel}>Abbrechen</button>
+                    <button onClick={cancel}>{t('Abbrechen')}</button>
                   </>
                 ) : (
                   <button className="primary" disabled={runnable === 0 || busy} onClick={() => void apply()}>
-                    {`${runnable} Dateien ${spec?.kind === 'convert' ? 'konvertieren' : (opName === 'move' || opName === 'duplicates' || opName === 'sort_template') ? 'verschieben' : opName === 'ai_organize' ? 'anwenden' : 'umbenennen'}`}
+                    {t('{n} Dateien {verb}', { n: runnable, verb: spec?.kind === 'convert' ? t('konvertieren') : (opName === 'move' || opName === 'duplicates' || opName === 'sort_template') ? t('verschieben') : opName === 'ai_organize' ? t('anwenden') : t('umbenennen') })}
                   </button>
                 )}
               </div>}
@@ -330,9 +349,9 @@ export default function App() {
       </div>
 
       <footer className="legal">
-        Procurator Capsularum · © 2026 Rüchan Sixt · Lizenz: AGPL-3.0-or-later · Ohne jede Gewährleistung ·{' '}
-        <a href="https://github.com/richi-sixt/procurator-capsularum" target="_blank" rel="noreferrer">Quellcode</a> ·{' '}
-        <button className="link" onClick={() => setAboutOpen(true)}>Über das Programm</button>
+        Procurator Capsularum · © 2026 Rüchan Sixt · {t('Lizenz')}: AGPL-3.0-or-later · {t('Ohne jede Gewährleistung')} ·{' '}
+        <a href="https://github.com/richi-sixt/procurator-capsularum" target="_blank" rel="noreferrer">{t('Quellcode')}</a> ·{' '}
+        <button className="link" onClick={() => setAboutOpen(true)}>{t('Über das Programm')}</button>
       </footer>
 
       {sendInfo && <SendDialog info={sendInfo} onCancel={() => setSendInfo(null)} onConfirm={() => void analyze(true)} />}

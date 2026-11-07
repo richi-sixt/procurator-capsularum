@@ -13,6 +13,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import ClassVar, Literal
 
+from ..i18n import tr
 from ..meta import best_date, created_ts
 from ..model import FileItem
 from ..scanner import natural_key
@@ -270,19 +271,19 @@ class DateStamp(RenameOperation):
         if item.path not in cache:
             if self.source == "custom":
                 cache[item.path] = None if self.custom_date is None else (
-                    datetime.combine(self.custom_date, datetime.min.time()), "Eigenes Datum")
+                    datetime.combine(self.custom_date, datetime.min.time()), tr("Eigenes Datum"))
             elif self.source == "created":
-                cache[item.path] = (datetime.fromtimestamp(_created(item)), "Erstellungsdatum der Datei")
+                cache[item.path] = (datetime.fromtimestamp(_created(item)), tr("Erstellungsdatum der Datei"))
             elif self.source == "modified":
                 cache[item.path] = (datetime.fromtimestamp(item.path.stat().st_mtime),
-                                    "Änderungsdatum der Datei")
+                                    tr("Änderungsdatum der Datei"))
             else:
                 cache[item.path] = best_date(item.path)
         return cache[item.path]
 
     def note(self, item: FileItem) -> str:
         found = self._stamp(item)
-        return f"Datum aus: {found[1]}" if found and self.source == "auto" else ""
+        return tr("Datum aus: {source}", source=found[1]) if found and self.source == "auto" else ""
 
     def edit(self, text: str, item: FileItem, index: int) -> str | None:
         found = self._stamp(item)
@@ -315,15 +316,15 @@ class NameTemplate(RenameOperation):
 
     def __post_init__(self) -> None:
         if not self.template.strip():
-            raise ValueError("Vorlage fehlt")
+            raise ValueError(tr("Vorlage fehlt"))
         for m in _TOKEN.finditer(self.template):
             if m.group(1) not in TEMPLATE_TOKENS:
-                raise ValueError(
-                    f"Unbekannter Platzhalter {{{m.group(1)}}}. Erlaubt: "
-                    + ", ".join("{" + t + "}" for t in TEMPLATE_TOKENS))
+                raise ValueError(tr("Unbekannter Platzhalter {token}. Erlaubt: {allowed}",
+                                    token="{" + m.group(1) + "}",
+                                    allowed=", ".join("{" + t + "}" for t in TEMPLATE_TOKENS)))
         rest = _TOKEN.sub("", self.template)
         if "{" in rest or "}" in rest:
-            raise ValueError("Geschweifte Klammern nur für Platzhalter, zum Beispiel {size}")
+            raise ValueError(tr("Geschweifte Klammern nur für Platzhalter, zum Beispiel {example}", example="{size}"))
         self._dates = DateStamp(self.source)
 
     def order(self, items: list[FileItem]) -> list[FileItem]:
@@ -351,5 +352,5 @@ class NameTemplate(RenameOperation):
 
         new = _TOKEN.sub(fill, self.template).strip()
         if not new:
-            raise ValueError("Die Vorlage ergibt einen leeren Namen")
+            raise ValueError(tr("Die Vorlage ergibt einen leeren Namen"))
         return new

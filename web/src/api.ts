@@ -1,10 +1,15 @@
+import type { Prefs } from './i18n'
 import type {
   About, Batch, Browse, Config, ConfigResponse, HelpContent, HelpPage, Job, Learning, ProbeResult, SendPreview, OperationSpec, Params, PlanResponse, Preset,
 } from './types'
 
+// Sprache der Meldungen vom Server (Kopf `X-Lang`), gesetzt vom I18nProvider
+let apiLang = 'de'
+export const setApiLang = (lang: string) => { apiLang = lang }
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Lang': apiLang },
     ...init,
   })
   if (!res.ok) {
@@ -46,6 +51,9 @@ export const api = {
     call<{ ok: boolean }>('/proposals/edit', post({ ...input, path, target })),
   job: (id: string) => call<Job>(`/jobs/${id}`),
   cancelJob: (id: string) => call<{ ok: boolean }>(`/jobs/${id}/cancel`, { method: 'POST' }),
+  reveal: (path: string) => call<{ ok: boolean }>('/reveal', post({ path })),
+  prefs: () => call<Prefs>('/prefs'),
+  savePrefs: (patch: Partial<Prefs>) => call<Prefs>('/prefs', { method: 'PUT', body: JSON.stringify(patch) }),
   history: () => call<Batch[]>('/history'),
   historyDetail: (id: number) =>
     call<{ src: string; dst: string; folder: string }[]>(`/history/${id}`),

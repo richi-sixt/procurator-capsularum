@@ -12,6 +12,7 @@ from pathlib import Path
 from platformdirs import user_data_path
 
 from .fsops import execute_moves
+from .i18n import tr
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS batches (
@@ -150,9 +151,9 @@ class Journal:
                 "SELECT undone, kind FROM batches WHERE id = ?", (batch_id,)
             ).fetchone()
         if row is None:
-            return 0, [f"Lauf {batch_id} existiert nicht"]
+            return 0, [tr("Lauf {id} existiert nicht", id=batch_id)]
         if row[0]:
-            return 0, [f"Lauf {batch_id} wurde schon rückgängig gemacht"]
+            return 0, [tr("Lauf {id} wurde schon rückgängig gemacht", id=batch_id)]
 
         if row[1] == "convert":
             return self._undo_convert(batch_id)
@@ -162,7 +163,7 @@ class Journal:
         runnable: list[tuple[Path, Path]] = []
         for dst, src in reverse:
             if not dst.exists():
-                errors.append(f"{dst.name}: Datei nicht mehr vorhanden")
+                errors.append(tr("{name}: Datei nicht mehr vorhanden", name=dst.name))
             else:
                 runnable.append((dst, src))
         outcome = execute_moves(runnable)
@@ -190,13 +191,13 @@ class Journal:
         errors: list[str] = []
         for src, dst in self.moves(batch_id):
             if dst == src:  # Sicherung: die Quelle wird nie gelöscht
-                errors.append(f"{dst.name}: Ziel ist die Quelle, übersprungen")
+                errors.append(tr("{name}: Ziel ist die Quelle, übersprungen", name=dst.name))
                 continue
             try:
                 dst.unlink()
                 removed += 1
             except FileNotFoundError:
-                errors.append(f"{dst.name}: Datei nicht mehr vorhanden")
+                errors.append(tr("{name}: Datei nicht mehr vorhanden", name=dst.name))
             except OSError as exc:
                 errors.append(f"{dst.name}: {exc}")
         if not errors:

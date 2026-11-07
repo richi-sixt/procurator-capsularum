@@ -197,3 +197,141 @@ def test_analysis_can_be_cancelled_and_resumed(client, folder):
     assert wait_job(client, job_id)["state"] in ("cancelled", "finished")
     job = wait_job(client, client.post("/api/analyze", json=req).json()["id"])  # danach geht es weiter
     assert job["state"] == "finished"
+
+
+def make_image(path, size=(400, 200), mode="RGB", color=(200, 30, 30), fmt=None):
+    from PIL import Image
+
+    Image.new(mode, size, color).save(path, fmt)
+    return path
+
+
+def test_thumb_returns_small_jpeg(client, folder):
+    import io
+
+    from PIL import Image
+
+    img = make_image(folder / "foto.png", (400, 200))
+    r = client.get("/api/thumb", params={"path": str(img), "size": 100})
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+    with Image.open(io.BytesIO(r.content)) as out:
+        assert out.format == "JPEG" and max(out.size) == 100 and out.size == (100, 50)
+
+
+def test_thumb_etag_gives_304(client, folder):
+    img = make_image(folder / "foto.png")
+    first = client.get("/api/thumb", params={"path": str(img)})
+    again = client.get("/api/thumb", params={"path": str(img)}, headers={"If-None-Match": first.headers["etag"]})
+    assert again.status_code == 304
+
+
+def test_thumb_transparency_goes_to_white(client, folder):
+    import io
+
+    from PIL import Image
+
+    img = make_image(folder / "klar.png", (50, 50), "RGBA", (0, 0, 0, 0))
+    r = client.get("/api/thumb", params={"path": str(img), "size": 50})
+    with Image.open(io.BytesIO(r.content)) as out:
+        assert out.getpixel((25, 25))[0] > 240
+
+
+def test_thumb_size_is_clamped(client, folder):
+    import io
+
+    from PIL import Image
+
+    img = make_image(folder / "foto.png", (3000, 3000))
+    r = client.get("/api/thumb", params={"path": str(img), "size": 99999})
+    with Image.open(io.BytesIO(r.content)) as out:
+        assert max(out.size) == 1600
+
+
+def test_thumb_refuses_non_images_relative_paths_and_missing(client, folder):
+    (folder / "text.txt").write_text("hallo")
+    assert client.get("/api/thumb", params={"path": str(folder / "text.txt")}).status_code == 404
+    assert client.get("/api/thumb", params={"path": "foto.png"}).status_code == 404
+    assert client.get("/api/thumb", params={"path": str(folder / "weg.png")}).status_code == 404
+
+
+def test_thumb_of_a_fake_image_is_415(client, folder):
+    fake = folder / "kaputt.jpg"
+    fake.write_text("kein Bild")
+    assert client.get("/api/thumb", params={"path": str(fake)}).status_code == 415
+
+
+def test_thumb_refuses_sensitive_files(client, folder):
+    img = make_image(folder / "Pass Scan.png")
+    assert client.get("/api/thumb", params={"path": str(img)}).status_code == 403
+
+
+def test_thumb_refuses_cross_site_requests(client, folder):
+    img = make_image(folder / "foto.png")
+    r = client.get("/api/thumb", params={"path": str(img)}, headers={"Sec-Fetch-Site": "cross-site"})
+    assert r.status_code == 403
+    ok = client.get("/api/thumb", params={"path": str(img)}, headers={"Sec-Fetch-Site": "same-origin"})
+    assert ok.status_code == 200
+
+
+def test_thumb_respects_exif_orientation(client, folder):
+    import io
+
+    from PIL import Image
+
+    img = Image.new("RGB", (200, 100), "blue")
+    exif = Image.Exif()
+    exif[0x0112] = 6  # um 90 Grad gedreht gespeichert
+    path = folder / "hoch.jpg"
+    img.save(path, exif=exif)
+    r = client.get("/api/thumb", params={"path": str(path), "size": 100})
+    with Image.open(io.BytesIO(r.content)) as out:
+        assert out.size[1] > out.size[0]
+
+
+def test_reveal_runs_the_file_manager_command(client, folder, monkeypatch):
+    from procurator import reveal as revealmod
+
+    seen = []
+    monkeypatch.setattr(revealmod.subprocess, "Popen", lambda cmd, **kw: seen.append(cmd))
+    (folder / "datei.txt").write_text("x")
+    r = client.post("/api/reveal", json={"path": str(folder / "datei.txt")})
+    assert r.status_code == 200 and seen and str(folder / "datei.txt") in seen[0]
+
+
+def test_reveal_refuses_relative_missing_and_cross_site(client, folder, monkeypatch):
+    from procurator import reveal as revealmod
+
+    seen = []
+    monkeypatch.setattr(revealmod.subprocess, "Popen", lambda cmd, **kw: seen.append(cmd))
+    assert client.post("/api/reveal", json={"path": "datei.txt"}).status_code == 400
+    assert client.post("/api/reveal", json={"path": str(folder / "weg" / "x.txt")}).status_code == 404
+    (folder / "datei.txt").write_text("x")
+    r = client.post("/api/reveal", json={"path": str(folder / "datei.txt")},
+                    headers={"Sec-Fetch-Site": "cross-site"})
+    assert r.status_code == 403 and not seen
+
+
+def test_reveal_opens_the_folder_when_the_file_is_gone(folder):
+    from procurator import reveal as revealmod
+
+    gone = folder / "weg.txt"
+    assert revealmod.command_for(gone, "darwin") == ["open", str(folder)]
+    (folder / "da.txt").write_text("x")
+    assert revealmod.command_for(folder / "da.txt", "darwin") == ["open", "-R", str(folder / "da.txt")]
+    assert revealmod.command_for(folder / "da.txt", "win32")[0] == "explorer"
+    assert revealmod.command_for(folder / "da.txt", "linux") == ["xdg-open", str(folder)]
+
+
+def test_prefs_default_save_and_survive_a_settings_save(client):
+    assert client.get("/api/prefs").json() == {"language": "auto", "theme": "auto", "thumbs": True}
+    r = client.put("/api/prefs", json={"theme": "dark", "language": "en"})
+    assert r.json() == {"language": "en", "theme": "dark", "thumbs": True}
+    cfg = client.get("/api/config").json()
+    client.put("/api/config", json={"ai": cfg["config"]["ai"], "privacy": cfg["config"]["privacy"]})
+    assert client.get("/api/prefs").json()["theme"] == "dark"  # Einstellungen speichern lässt die Darstellung
+
+
+def test_prefs_reject_unknown_values(client):
+    assert client.put("/api/prefs", json={"theme": "pink"}).status_code == 422
+    assert client.put("/api/prefs", json={"language": "fr"}).status_code == 422
+    assert client.get("/api/prefs").json()["theme"] == "auto"

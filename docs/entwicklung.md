@@ -66,6 +66,7 @@ src/procurator/
   help.py                  Hilfe in der App: docs/*.md als HTML
   desktop.py               Server für die Desktop-App (desktop/)
   index.py                 Datei-Index und Dubletten
+  thumbs.py                Vorschaubilder (Pillow, JPEG, nur lokal)
   config.py  privacy.py    Konfiguration, sensible Dateien
   ai/                      Anbieter (Ollama, Claude), Vorschläge, Prüfung, Lernen
   about.py                 Version, Autor, Lizenzen der Bausteine
@@ -166,6 +167,8 @@ Meldung ist also für Nutzer gedacht.
   `ClaudeClient` (offizielles SDK, `output_config` mit JSON-Schema). `make_client(cfg)` wählt nach Anbieter.
 - `ai/organizer.py`: Pakete zu 20 Dateien bilden, Prompt nach Stufe bauen, Antwort tolerant lesen, prüfen.
 - `ai/extract.py`: Textauszug für Stufe 2 aus Text, PDF (`pypdf`, erste 3 Seiten, höchstens 30 MB) und DOCX/XLSX/PPTX (ZIP, Tags entfernen, kein XML-Parser, pro Teil höchstens 512 KB entpackt). Fehler ergeben einen leeren Auszug.
+- `thumbs.py` und `GET /api/thumb`: kleines JPEG pro Bild (Seitenlänge 32 bis 1600, Standard 96), EXIF-Drehung beachtet, Transparenz auf Weiss, ETag aus Änderungszeit, Grösse und Mass. Verweigert: Nicht-Bilder, relative Pfade, sensible Dateien (Schlüsselwörter), Anfragen mit `Sec-Fetch-Site: cross-site`, Dateien über 200 MB oder über 120 Mio. Pixel.
+- `reveal.py` und `POST /api/reveal`: Datei im Dateimanager zeigen (`open -R`, `explorer /select,`, `xdg-open`), ohne Shell, nur absolute Pfade, `Sec-Fetch-Site: cross-site` wird abgewiesen. `Operation.related(item)` liefert bei Dubletten die gleichen Dateien (behaltene zuerst), der Server gibt höchstens 30 pro Zeile aus (`related`, `relatedTotal`).
 - `ai/proposals.py`: Vorschläge pro (Pfad, Lauf-Schlüssel), gültig solange Grösse und Änderungszeit gleich sind.
 - `ai/learning.py`: Entscheidungen merken und als Gewohnheiten und Beispiele in den Prompt geben.
 - Die Tests ersetzen das Modell durch einen Fake (`FakeClient` in `tests/test_ai.py`). Es gibt keinen
@@ -175,6 +178,8 @@ Meldung ist also für Nutzer gedacht.
 
 - `web/src/App.tsx`: Zustand, Jobs mit Polling, Vorschau-Tabelle.
 - `web/src/api.ts` und `types.ts`: Aufrufe an `/api` und ihre Typen.
+- Sprache: `web/src/i18n.ts` (`t`, `tx`, Kontext), `locale-en.ts` (Englisch, Schlüssel ist der deutsche Text), `components/I18nProvider.tsx` (Einstellungen vom Server, `X-Lang`-Kopf bei jedem Aufruf). `npm run check:i18n` (auch in der CI) prüft, dass jeder Text übersetzt ist und die Platzhalter `{name}` gleich sind.
+- Server: `src/procurator/i18n.py` (`tr`, Sprache pro Anfrage in einer Kontextvariablen, `bind` für Hintergrund-Jobs) und `locale_en.py`. `tests/test_i18n.py` prüft per AST, dass jeder `tr("…")`-Aufruf und jeder Text der Aktionsliste eine englische Übersetzung hat. **Neue Meldungen immer mit `tr` schreiben und in `locale_en.py` übersetzen.** Die Kommandozeile bleibt Deutsch (ausser `PC_LANG=en`). `[ui]` in `config.toml` (`/api/prefs`) speichert Sprache, Hell/Dunkel und Vorschaubilder serverseitig, weil die Desktop-App bei jedem Start einen anderen Port und damit einen anderen Browserspeicher hat.
 - **Hilfe in der App:** Der Knopf «Hilfe» (`HelpDialog.tsx`) zeigt die Seiten aus `docs/`. `help.py` liest die
   Markdown-Dateien, wandelt sie mit `markdown-it-py` in HTML um (rohes HTML wird nicht ausgegeben, nur Text) und
   setzt Anker wie auf GitHub. Verweise auf andere Seiten bekommen `data-help`, Bilder gehen über

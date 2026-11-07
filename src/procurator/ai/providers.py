@@ -9,6 +9,7 @@ from typing import Any, Protocol
 import httpx
 
 from ..config import Config
+from ..i18n import tr
 
 # Antwortformat, das beide Anbieter erzwingen: eine Liste mit einem Eintrag pro Datei.
 RESPONSE_SCHEMA: dict[str, Any] = {
@@ -73,15 +74,15 @@ class OllamaClient:
             return httpx.post(f"{self.host}/api/chat", json=payload, timeout=self.timeout)
         except httpx.ConnectError as exc:
             raise ProviderError(
-                f"Ollama antwortet nicht unter {self.host}. Läuft der Dienst? (ollama serve)"
+                tr("Ollama antwortet nicht unter {host}. Läuft der Dienst? (ollama serve)", host=self.host)
             ) from exc
         except httpx.TimeoutException as exc:
             raise ProviderError(
-                "Ollama hat nicht rechtzeitig geantwortet. Das Modell ist vielleicht zu gross "
-                "für diesen Rechner oder lädt noch."
+                tr("Ollama hat nicht rechtzeitig geantwortet. Das Modell ist vielleicht zu gross "
+                   "für diesen Rechner oder lädt noch.")
             ) from exc
         except httpx.HTTPError as exc:
-            raise ProviderError(f"Verbindung zu Ollama fehlgeschlagen ({type(exc).__name__})") from exc
+            raise ProviderError(tr("Verbindung zu Ollama fehlgeschlagen ({error})", error=type(exc).__name__)) from exc
 
     def complete_json(self, system: str, user: str, schema: dict[str, Any]) -> str:
         r = self._post(system, user, schema) if self._structured else None
@@ -92,13 +93,13 @@ class OllamaClient:
             hint = "\n\nReply with a single JSON object that follows this JSON schema:\n"
             r = self._post(system + hint + json.dumps(schema), user, None)
         if r.status_code == 404:
-            raise ProviderError(f"Das Modell {self.model} fehlt. Laden mit: ollama pull {self.model}")
+            raise ProviderError(tr("Das Modell {model} fehlt. Laden mit: ollama pull {model}", model=self.model))
         if r.status_code >= 400:
-            raise ProviderError(f"Ollama meldet einen Fehler ({r.status_code}): {r.text[:200]}")
+            raise ProviderError(tr("Ollama meldet einen Fehler ({code}): {text}", code=r.status_code, text=r.text[:200]))
         try:
             return str(r.json()["message"]["content"])
         except (ValueError, KeyError, TypeError) as exc:
-            raise ProviderError("Unerwartete Antwort von Ollama") from exc
+            raise ProviderError(tr("Unerwartete Antwort von Ollama")) from exc
 
 
 class ClaudeClient:
@@ -123,27 +124,27 @@ class ClaudeClient:
                 output_config={"effort": "low", "format": {"type": "json_schema", "schema": schema}},
             )
         except sdk.AuthenticationError as exc:
-            raise ProviderError("Der API-Schlüssel wurde abgelehnt. Prüfe die Umgebungsvariable.") from exc
+            raise ProviderError(tr("Der API-Schlüssel wurde abgelehnt. Prüfe die Umgebungsvariable.")) from exc
         except sdk.PermissionDeniedError as exc:
-            raise ProviderError("Der API-Schlüssel hat dafür keine Berechtigung.") from exc
+            raise ProviderError(tr("Der API-Schlüssel hat dafür keine Berechtigung.")) from exc
         except sdk.NotFoundError as exc:
-            raise ProviderError(f"Das Modell {self.model} wurde nicht gefunden.") from exc
+            raise ProviderError(tr("Das Modell {model} wurde nicht gefunden.", model=self.model)) from exc
         except sdk.BadRequestError as exc:
-            raise ProviderError(f"Die Anfrage wurde abgelehnt: {exc.message}") from exc
+            raise ProviderError(tr("Die Anfrage wurde abgelehnt: {text}", text=exc.message)) from exc
         except sdk.RateLimitError as exc:
-            raise ProviderError("Zu viele Anfragen. Warte kurz und versuche es erneut.") from exc
+            raise ProviderError(tr("Zu viele Anfragen. Warte kurz und versuche es erneut.")) from exc
         except sdk.APIStatusError as exc:
-            raise ProviderError(f"Claude meldet einen Fehler ({exc.status_code}).") from exc
+            raise ProviderError(tr("Claude meldet einen Fehler ({code}).", code=exc.status_code)) from exc
         except sdk.APIConnectionError as exc:
-            raise ProviderError("Keine Verbindung zu Anthropic. Netzwerk prüfen.") from exc
+            raise ProviderError(tr("Keine Verbindung zu Anthropic. Netzwerk prüfen.")) from exc
         if resp.stop_reason == "refusal":
-            raise ProviderError("Das Modell hat diese Anfrage abgelehnt.")
+            raise ProviderError(tr("Das Modell hat diese Anfrage abgelehnt."))
         if resp.stop_reason == "max_tokens":
-            raise ProviderError("Die Antwort wurde abgeschnitten. Weniger Dateien pro Lauf versuchen.")
+            raise ProviderError(tr("Die Antwort wurde abgeschnitten. Weniger Dateien pro Lauf versuchen."))
         for block in resp.content:
             if block.type == "text":
                 return str(block.text)
-        raise ProviderError("Claude hat keine Textantwort geliefert.")
+        raise ProviderError(tr("Claude hat keine Textantwort geliefert."))
 
 
 def _sdk() -> Any:
@@ -151,7 +152,7 @@ def _sdk() -> Any:
         import anthropic
     except ImportError as exc:
         raise ProviderError(
-            "Das Paket «anthropic» fehlt. Installieren mit: uv sync --extra claude") from exc
+            tr("Das Paket «anthropic» fehlt. Installieren mit: uv sync --extra claude")) from exc
     return anthropic
 
 
@@ -160,6 +161,6 @@ def make_client(cfg: Config) -> LLMClient:
     if cfg.ai.provider == "claude":
         key = os.environ.get(cfg.ai.api_key_env, "")
         if not key:
-            raise ProviderError(f"Die Umgebungsvariable {cfg.ai.api_key_env} ist nicht gesetzt.")
+            raise ProviderError(tr("Die Umgebungsvariable {name} ist nicht gesetzt.", name=cfg.ai.api_key_env))
         return ClaudeClient(key, cfg.ai.claude_model)
     return OllamaClient(cfg.ai.ollama_host, cfg.ai.ollama_model)

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, Literal
 
+from ..i18n import tr
 from ..model import FileItem
 from .base import Operation
 
@@ -35,7 +36,7 @@ class ConvertOperation(Operation):
         out = Path(self.output_dir).expanduser().resolve()
         root = (item.root or item.path.parent).resolve()
         if out == root or root in out.parents:
-            raise ValueError("Zielordner muss ausserhalb des Quellordners liegen")
+            raise ValueError(tr("Zielordner muss ausserhalb des Quellordners liegen"))
         rel = item.path.resolve().relative_to(root)
         return out / rel.with_name(new_name)
 
@@ -74,7 +75,7 @@ def _list_rar(archive: Path) -> int:
     """Anzahl Dateien (ohne Ordner und Müll), die das Archiv angibt."""
     r = subprocess.run(["lsar", "-j", str(archive)], capture_output=True, text=True)
     if r.returncode != 0:
-        raise RuntimeError(f"lsar fehlgeschlagen: {r.stderr.strip()[:200]}")
+        raise RuntimeError(tr("lsar fehlgeschlagen: {error}", error=r.stderr.strip()[:200]))
     entries = json.loads(r.stdout).get("lsarContents", [])
     return sum(
         1 for e in entries
@@ -91,13 +92,13 @@ def _extract_rar(archive: Path, out: Path) -> None:
                          capture_output=True, text=True)
     if tar.returncode == 0:
         return
-    raise RuntimeError(f"unar fehlgeschlagen: {(r.stderr or r.stdout).strip()[:200]}")
+    raise RuntimeError(tr("unar fehlgeschlagen: {error}", error=(r.stderr or r.stdout).strip()[:200]))
 
 
 def _build_cbz(folder: Path, target: Path) -> int:
     files = [p for p in folder.rglob("*") if p.is_file() and not _is_junk(p.relative_to(folder))]
     if not files:
-        raise RuntimeError("Archiv enthält keine Dateien")
+        raise RuntimeError(tr("Archiv enthält keine Dateien"))
     files.sort(key=lambda p: _natural_key(p.relative_to(folder).as_posix()))
     with zipfile.ZipFile(target, "w", allowZip64=True) as zf:
         for p in files:
@@ -110,9 +111,9 @@ def _verify_zip(target: Path, expected: int | None = None) -> None:
     with zipfile.ZipFile(target) as zf:
         bad = zf.testzip()
         if bad:
-            raise RuntimeError(f"Beschädigter Eintrag im Ergebnis: {bad}")
+            raise RuntimeError(tr("Beschädigter Eintrag im Ergebnis: {name}", name=bad))
         if expected is not None and len(zf.namelist()) != expected:
-            raise RuntimeError(f"{len(zf.namelist())} Einträge, erwartet {expected}")
+            raise RuntimeError(tr("{n} Einträge, erwartet {expected}", n=len(zf.namelist()), expected=expected))
 
 
 @dataclass
@@ -136,7 +137,7 @@ class CbrToCbz(ConvertOperation):
     def check(self, item: FileItem) -> str | None:
         if item.suffix.lower() == ".cbr" and (shutil.which("unar") is None
                                               or shutil.which("lsar") is None):
-            return "unar fehlt (brew install unar)"
+            return tr("unar fehlt (brew install unar)")
         return None
 
     def convert(self, src: Path, dst: Path) -> str | None:
@@ -146,15 +147,15 @@ class CbrToCbz(ConvertOperation):
             if src.suffix.lower() != ".cbr":
                 shutil.copyfile(src, part)
                 os.replace(part, dst)
-                return "kopiert"
+                return tr("kopiert")
             kind = sniff(src)
             if kind == "zip":  # .cbr, das in Wahrheit ein ZIP ist
                 shutil.copyfile(src, part)
                 _verify_zip(part)
                 os.replace(part, dst)
-                return "war ein ZIP, nur umbenannt"
+                return tr("war ein ZIP, nur umbenannt")
             if kind != "rar":
-                raise RuntimeError("Weder RAR noch ZIP")
+                raise RuntimeError(tr("Weder RAR noch ZIP"))
             # Arbeitsordner neben dem Ziel: unar kann auf manchen externen Laufwerken nicht lesen,
             # und das Ziel hat sicher genug Platz.
             with tempfile.TemporaryDirectory(dir=dst.parent, prefix=".pc-work-") as td:
@@ -168,10 +169,10 @@ class CbrToCbz(ConvertOperation):
                 local.unlink()
                 count = _build_cbz(pages, part)
             if count != expected:
-                raise RuntimeError(f"{count} Dateien entpackt, Archiv nennt {expected}")
+                raise RuntimeError(tr("{count} Dateien entpackt, Archiv nennt {expected}", count=count, expected=expected))
             _verify_zip(part, count)
             os.replace(part, dst)
-            return f"konvertiert ({count} Seiten)"
+            return tr("konvertiert ({count} Seiten)", count=count)
         finally:
             part.unlink(missing_ok=True)
 

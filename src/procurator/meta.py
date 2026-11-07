@@ -13,10 +13,12 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from .i18n import tr
+
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".tif", ".tiff"}
 # EXIF: DateTimeOriginal, DateTimeDigitized (im Unterverzeichnis 0x8769), DateTime (Hauptverzeichnis)
 _EXIF_IFD = 0x8769
-_TAGS = (("Aufnahmedatum", 36867), ("Digitalisierungsdatum", 36868))
+_TAGS = (("Aufnahmedatum", 36867), ("Digitalisierungsdatum", 36868))  # Bezeichnungen: `tr` beim Ausgeben
 _TAG_MODIFIED = 306
 MIN_YEAR = 1990
 
@@ -63,9 +65,9 @@ def exif_date(path: Path) -> tuple[str, datetime] | None:
             sub = exif.get_ifd(_EXIF_IFD)
             for label, tag in _TAGS:
                 if (stamp := _parse(sub.get(tag) or exif.get(tag))) is not None:
-                    return label, stamp
+                    return tr(label), stamp
             if (stamp := _parse(exif.get(_TAG_MODIFIED))) is not None:
-                return "Änderungsdatum im Bild", stamp
+                return tr("Änderungsdatum im Bild"), stamp
     except Exception:  # defektes oder fremdes Bild: dann gilt das Dateidatum
         return None
     return None
@@ -75,8 +77,8 @@ def best_date(path: Path) -> tuple[datetime, str]:
     """Das Datum, das am ehesten das echte Datum der Datei ist, mit Angabe der Quelle."""
     if (found := exif_date(path)) is not None:
         label, stamp = found
-        return stamp, f"{label} (EXIF)"
+        return stamp, tr("{label} (EXIF)", label=label)
     created, modified = created_ts(path), os.stat(path).st_mtime
     if created <= modified:
-        return datetime.fromtimestamp(created), "Erstellungsdatum der Datei"
-    return datetime.fromtimestamp(modified), "Änderungsdatum der Datei"
+        return datetime.fromtimestamp(created), tr("Erstellungsdatum der Datei")
+    return datetime.fromtimestamp(modified), tr("Änderungsdatum der Datei")

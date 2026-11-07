@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -18,9 +18,12 @@ from pydantic import BaseModel, Field
 from .. import about as aboutmod
 from .. import config as cfgmod
 from .. import help as helpmod
+from .. import reveal as revealmod
+from .. import thumbs
 from ..ai.learning import DecisionStore
 from ..ai.probe import probe
 from ..engine import apply_plan, make_plan
+from ..i18n import bind, set_language, tr
 from ..journal import Journal
 from ..model import FileItem, Plan, Status
 from ..ops.base import Operation
@@ -41,6 +44,7 @@ npm run build</pre>
 <a href="/api/docs">/api/docs</a> erreichbar.</p>
 </body></html>"""
 
+RELATED_MAX = 30  # mehr gleiche Dateien pro Zeile werden nicht einzeln aufgeführt
 DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
 
@@ -68,6 +72,16 @@ class ProposalEditRequest(PlanRequest):
     target: str
 
 
+class RevealRequest(BaseModel):
+    path: str = Field(min_length=1)
+
+
+def _refuse_cross_site(request: Request) -> None:
+    """Anfragen, die eine fremde Webseite im Browser auslöst, werden abgewiesen."""
+    if request.headers.get("sec-fetch-site") == "cross-site":
+        raise HTTPException(403, tr("Nicht erlaubt"))
+
+
 class PresetRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     operation: str
@@ -79,7 +93,7 @@ def _items(req: ScanRequest) -> list[FileItem]:
     for raw in req.paths:
         p = Path(raw).expanduser()
         if not p.is_absolute() or not p.exists():
-            raise HTTPException(400, f"Pfad existiert nicht: {raw}")
+            raise HTTPException(400, tr("Pfad existiert nicht: {path}", path=raw))
         paths.append(p)
     items = scan(paths, recursive=req.recursive)
     if getattr(req, "order", None):
@@ -120,10 +134,18 @@ def _serialize(plan: Plan) -> dict[str, Any]:
                 "folder": str(c.src.parent),
                 "status": c.status.value, "reason": c.reason, "sensitive": c.sensitive,
                 "editable": c.editable,
+                "related": [str(p) for p in c.related[:RELATED_MAX]],
+                "relatedTotal": len(c.related),
             }
             for c in plan.changes
         ],
     }
+
+
+class PrefsRequest(BaseModel):
+    language: str | None = None
+    theme: str | None = None
+    thumbs: bool | None = None
 
 
 class ConfigRequest(BaseModel):
@@ -138,7 +160,7 @@ def _config_response(cfg: cfgmod.Config, warning: str | None = None) -> dict[str
         "isCloud": cfg.is_cloud,
         "requiresConfirmation": cfg.requires_confirmation,
         "apiKeyPresent": cfgmod.api_key_present(cfg),  # nur ja/nein, nie der Wert
-        "privacyLevels": {str(k): v for k, v in cfgmod.PRIVACY_LEVELS.items()},
+        "privacyLevels": {str(k): tr(v) for k, v in cfgmod.PRIVACY_LEVELS.items()},
         "defaults": cfgmod.Config().to_dict(),
         "path": str(cfgmod.config_path()),
     }
@@ -166,12 +188,18 @@ class Job:
         }
 
 
+async def _language(request: Request) -> None:
+    """Sprache der Meldungen: Kopf `X-Lang` der Oberfläche, sonst `Accept-Language`."""
+    set_language(request.headers.get("x-lang") or request.headers.get("accept-language"))
+
+
 def create_app(journal: Journal | None = None, static_dir: Path | None = None) -> FastAPI:
-    app = FastAPI(title="Procurator Capsularum", docs_url="/api/docs", openapi_url="/api/openapi.json")
+    app = FastAPI(title="Procurator Capsularum", docs_url="/api/docs", openapi_url="/api/openapi.json",
+                  dependencies=[Depends(_language)])
     # Gegen DNS-Rebinding: nur lokale Host-Header; gegen fremde Webseiten: CORS nur für Vite-Dev.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "testserver"])
     app.add_middleware(CORSMiddleware, allow_origins=DEV_ORIGINS, allow_methods=["*"],
-                       allow_headers=["Content-Type"])
+                       allow_headers=["Content-Type", "X-Lang"])
     db = journal or Journal()
     jobs: dict[str, Job] = {}
     jobs_lock = threading.Lock()
@@ -184,11 +212,11 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
     def browse(path: str = "") -> dict[str, Any]:
         p = Path(path).expanduser() if path else Path.home()
         if not p.is_absolute() or not p.is_dir():
-            raise HTTPException(400, "Kein Ordner")
+            raise HTTPException(400, tr("Kein Ordner"))
         try:
             entries = sorted(p.iterdir(), key=lambda e: e.name.casefold())
         except PermissionError as exc:
-            raise HTTPException(403, "Keine Leserechte") from exc
+            raise HTTPException(403, tr("Keine Leserechte")) from exc
         dirs = [e.name for e in entries if not e.name.startswith(".") and e.is_dir()]
         files = sum(1 for e in entries if e.is_file() and not e.name.startswith("."))
         return {
@@ -207,6 +235,40 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
         return [{"src": str(i.path), "srcName": i.name, "folder": str(i.path.parent),
                  "sensitive": rules.match(i)} for i in _items(req)]
 
+    @app.post("/api/reveal")
+    def reveal(req: RevealRequest, request: Request) -> dict[str, bool]:
+        """Datei im Dateimanager zeigen (Finder, Explorer). Der Server läuft auf dem eigenen Rechner."""
+        _refuse_cross_site(request)
+        p = Path(req.path).expanduser()
+        if not p.is_absolute():
+            raise HTTPException(400, tr("Pfad muss absolut sein"))
+        try:
+            revealmod.reveal(p)
+        except OSError as exc:
+            raise HTTPException(404, tr("Datei und Ordner gibt es nicht mehr")) from exc
+        return {"ok": True}
+
+    @app.get("/api/thumb")
+    def thumb(request: Request, path: str, size: int = 96) -> Response:
+        """Kleines Vorschaubild einer Bilddatei. Nur Bilder, nie sensible Dateien, nie von fremden Webseiten."""
+        _refuse_cross_site(request)
+        p = Path(path).expanduser()
+        if not p.is_absolute() or not p.is_file() or not thumbs.is_thumbable(p):
+            raise HTTPException(404, tr("Kein Bild"))
+        cfg, _warning = cfgmod.load()
+        if rules_from_config(cfg).match(FileItem(p)):
+            raise HTTPException(403, tr("Sensible Datei: keine Vorschau"))
+        st = p.stat()
+        size = thumbs.clamp(size)
+        etag = f'"{st.st_mtime_ns:x}-{st.st_size:x}-{size}"'
+        headers = {"ETag": etag, "Cache-Control": "private, max-age=3600"}
+        if request.headers.get("if-none-match") == etag:
+            return Response(status_code=304, headers=headers)
+        data = thumbs.make_thumbnail(p, size)
+        if data is None:
+            raise HTTPException(415, tr("Bild nicht lesbar"))
+        return Response(data, media_type="image/jpeg", headers=headers)
+
     @app.post("/api/plan")
     def plan(req: PlanRequest) -> dict[str, Any]:
         return _serialize(_plan(req))
@@ -220,7 +282,7 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
             c.enabled = c.src not in disabled
         with jobs_lock:
             if any(j.state == "running" for j in jobs.values()):
-                raise HTTPException(409, "Es läuft bereits ein Auftrag")
+                raise HTTPException(409, tr("Es läuft bereits ein Auftrag"))
             job = Job(id=uuid.uuid4().hex, total=sum(1 for c in plan_.changes if c.will_run))
             job.skipped = sum(1 for c in plan_.changes if not c.will_run)
             jobs[job.id] = job
@@ -244,7 +306,7 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
             except Exception as exc:
                 job.error, job.state = str(exc), "error"
 
-        threading.Thread(target=run, daemon=True).start()
+        threading.Thread(target=bind(run), daemon=True).start()
         return job.to_dict()
 
     @app.post("/api/analyze")
@@ -256,14 +318,14 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
         except ParamError as exc:
             raise HTTPException(422, str(exc)) from exc
         if not op.needs_analysis:
-            raise HTTPException(400, "Diese Aktion braucht keine Analyse")
+            raise HTTPException(400, tr("Diese Aktion braucht keine Analyse"))
         cfg, _warning = cfgmod.load()
         if op.sends_data and cfg.requires_confirmation and not req.confirm_cloud:
-            raise HTTPException(409, "Für einen Cloud-Anbieter fehlt die Bestätigung vor dem Senden")
+            raise HTTPException(409, tr("Für einen Cloud-Anbieter fehlt die Bestätigung vor dem Senden"))
         items = _items(req)
         with jobs_lock:
             if any(j.state == "running" for j in jobs.values()):
-                raise HTTPException(409, "Es läuft bereits ein Auftrag")
+                raise HTTPException(409, tr("Es läuft bereits ein Auftrag"))
             job = Job(id=uuid.uuid4().hex, total=len(items))
             jobs[job.id] = job
 
@@ -277,7 +339,7 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
             except Exception as exc:
                 job.error, job.state = str(exc), "error"
 
-        threading.Thread(target=run, daemon=True).start()
+        threading.Thread(target=bind(run), daemon=True).start()
         return job.to_dict()
 
     @app.post("/api/analyze/preview")
@@ -299,11 +361,11 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
             raise HTTPException(422, str(exc)) from exc
         path = Path(req.path)
         if not path.is_absolute() or not path.is_file():
-            raise HTTPException(400, f"Datei existiert nicht: {req.path}")
+            raise HTTPException(400, tr("Datei existiert nicht: {path}", path=req.path))
         try:
             op.edit_target(path, req.target)
         except NotImplementedError as exc:
-            raise HTTPException(400, "Diese Aktion kennt keine manuellen Ziele") from exc
+            raise HTTPException(400, tr("Diese Aktion kennt keine manuellen Ziele")) from exc
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         return {"ok": True}
@@ -312,14 +374,14 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
     def job_status(job_id: str) -> dict[str, Any]:
         job = jobs.get(job_id)
         if job is None:
-            raise HTTPException(404, "Auftrag unbekannt")
+            raise HTTPException(404, tr("Auftrag unbekannt"))
         return job.to_dict()
 
     @app.post("/api/jobs/{job_id}/cancel")
     def job_cancel(job_id: str) -> dict[str, bool]:
         job = jobs.get(job_id)
         if job is None:
-            raise HTTPException(404, "Auftrag unbekannt")
+            raise HTTPException(404, tr("Auftrag unbekannt"))
         job.cancel.set()
         return {"ok": True}
 
@@ -337,14 +399,14 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
     def help_image(name: str) -> FileResponse:
         path = helpmod.image_path(name)
         if path is None:
-            raise HTTPException(404, "Bild nicht gefunden")
+            raise HTTPException(404, tr("Bild nicht gefunden"))
         return FileResponse(path, media_type="image/png")
 
     @app.get("/api/help/{name}")
     def help_page(name: str) -> dict[str, Any]:
         page = helpmod.pages().get(name)
         if page is None:
-            raise HTTPException(404, "Seite nicht gefunden")
+            raise HTTPException(404, tr("Seite nicht gefunden"))
         return {"name": page.name, "title": page.title, "html": page.html, "toc": page.toc}
 
     @app.get("/api/learning")
@@ -358,6 +420,21 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
     def learning_clear() -> dict[str, int]:
         return {"deleted": DecisionStore().clear()}
 
+    @app.get("/api/prefs")
+    def get_prefs() -> dict[str, Any]:
+        """Sprache, Hell/Dunkel und Vorschaubilder der Oberfläche."""
+        return asdict(cfgmod.load()[0].ui)
+
+    @app.put("/api/prefs")
+    def put_prefs(req: PrefsRequest) -> dict[str, Any]:
+        cfg, _warning = cfgmod.load()
+        try:
+            cfg.ui = cfgmod.parse_ui({**asdict(cfg.ui), **req.model_dump(exclude_none=True)})
+        except cfgmod.ConfigError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        cfgmod.save(cfg)
+        return asdict(cfg.ui)
+
     @app.get("/api/config")
     def get_config() -> dict[str, Any]:
         cfg, warning = cfgmod.load()
@@ -369,6 +446,7 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
             cfg = cfgmod.parse(req.model_dump())
         except (cfgmod.ConfigError, TypeError) as exc:
             raise HTTPException(422, str(exc)) from exc
+        cfg.ui = cfgmod.load()[0].ui  # die Darstellung hat ihren eigenen Weg (`/api/prefs`)
         cfgmod.save(cfg)
         return _config_response(cfg)
 

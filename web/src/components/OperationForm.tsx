@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import FolderPicker from './FolderPicker'
 import type { Field, OperationSpec, Params } from '../types'
+import { useT } from '../i18n'
 
 type Props = { spec: OperationSpec; params: Params; onChange: (p: Params) => void }
 
@@ -18,6 +19,7 @@ const visible = (f: Field, params: Params) =>
   !f.showIf || Object.entries(f.showIf).every(([k, v]) => String(params[k]) === v)
 
 export default function OperationForm({ spec, params, onChange }: Props) {
+  const t = useT()
   const [pickerFor, setPickerFor] = useState<string | null>(null)
   const set = (key: string, value: string | number | boolean | null) =>
     onChange({ ...params, [key]: value })
@@ -45,10 +47,10 @@ export default function OperationForm({ spec, params, onChange }: Props) {
               </select>
             ) : f.type === 'folder' ? (
               <div className="path-add">
-                <input id={id} value={String(value ?? '')} placeholder="/Pfad/zum/Zielordner" spellCheck={false}
+                <input id={id} value={String(value ?? '')} placeholder={t('/Pfad/zum/Zielordner')} spellCheck={false}
                   onChange={(e) => set(f.key, e.target.value)} />
-                <button onClick={() => setPickerFor(f.key)}>Wählen …</button>
-                {value ? <button onClick={() => set(f.key, '')}>Leeren</button> : null}
+                <button onClick={() => setPickerFor(f.key)}>{t('Wählen …')}</button>
+                {value ? <button onClick={() => set(f.key, '')}>{t('Leeren')}</button> : null}
               </div>
             ) : f.type === 'number' ? (
               <input id={id} type="number" value={value === null ? '' : Number(value)}

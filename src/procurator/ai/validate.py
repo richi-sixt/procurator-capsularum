@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from ..i18n import tr
 from ..model import FileItem
 from .proposals import Proposal
 
@@ -37,16 +38,16 @@ def clean_folder(raw: str, max_depth: int) -> str:
     if not text:
         return ""
     if text.startswith("/") or text.startswith("~") or re.match(r"^[A-Za-z]:", text):
-        raise ProposalError("Absoluter Pfad vorgeschlagen")
+        raise ProposalError(tr("Absoluter Pfad vorgeschlagen"))
     parts: list[str] = []
     for part in text.split("/"):
         part = part.strip()
         if part in ("", "."):
             continue
         if part == "..":
-            raise ProposalError("Pfad mit «..» vorgeschlagen")
+            raise ProposalError(tr("Pfad mit «..» vorgeschlagen"))
         if part.startswith("."):
-            raise ProposalError("Versteckter Ordner vorgeschlagen")
+            raise ProposalError(tr("Versteckter Ordner vorgeschlagen"))
         part = part.replace(":", "-").rstrip(". ")
         if not part:
             continue

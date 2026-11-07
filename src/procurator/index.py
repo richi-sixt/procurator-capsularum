@@ -24,6 +24,7 @@ from typing import Any
 
 from platformdirs import user_data_path
 
+from .i18n import tr
 from .model import FileItem
 from .scanner import natural_key
 
@@ -204,7 +205,7 @@ class FileIndex:
             result.errors.append((path, str(exc)))
             return None
         if after.st_size != st.st_size or after.st_mtime_ns != st.st_mtime_ns:
-            result.errors.append((path, "Datei hat sich während des Lesens geändert"))
+            result.errors.append((path, tr("Datei hat sich während des Lesens geändert")))
             return None
         db.execute("UPDATE files SET sha256 = ? WHERE path = ?", (digest, key))
         result.hashed += 1
@@ -241,7 +242,7 @@ class FileIndex:
                     result.cancelled = True
                     return [], result
                 if on_progress:
-                    on_progress(n, len(todo), f"Anfang lesen: {Path(key).name}")
+                    on_progress(n, len(todo), tr("Anfang lesen: {name}", name=Path(key).name))
                 try:
                     rows[key]["partial"] = _partial_hash(Path(key))
                 except OSError as exc:

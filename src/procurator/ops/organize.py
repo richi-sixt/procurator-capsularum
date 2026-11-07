@@ -14,6 +14,7 @@ from ..ai.learning import Decision, DecisionStore
 from ..ai.organizer import OrganizeOptions, Organizer
 from ..ai.proposals import Proposal, ProposalStore
 from ..ai.validate import ProposalError, clean_folder, clean_name
+from ..i18n import tr
 from ..model import FileItem, PlannedChange
 from ..privacy import rules_from_config
 from .base import Operation
@@ -89,7 +90,7 @@ class AiOrganize(Operation):
         if p is None:
             return None
         if p.error:
-            raise ValueError(f"Unbrauchbarer Vorschlag: {p.error}")
+            raise ValueError(tr("Unbrauchbarer Vorschlag: {error}", error=p.error))
         if self._target(item, p) == item.path:
             return None
         return p.name or item.name
@@ -100,20 +101,21 @@ class AiOrganize(Operation):
 
     def skip_reason(self, item: FileItem) -> str | None:
         if item.path in self._withheld:
-            return f"Sensibel ({self._withheld[item.path]}): wird nicht an das Modell gesendet"
+            return tr("Sensibel ({hit}): wird nicht an das Modell gesendet", hit=self._withheld[item.path])
         p = self._props.get(item.path)
         if p is None:
-            return "Noch nicht analysiert"
-        suffix = f": {p.reason}" if p.reason else ""
-        return f"Keine Änderung vorgeschlagen{suffix}"
+            return tr("Noch nicht analysiert")
+        if p.reason:
+            return tr("Keine Änderung vorgeschlagen: {reason}", reason=p.reason)
+        return tr("Keine Änderung vorgeschlagen")
 
     def note(self, item: FileItem) -> str:
         p = self._props.get(item.path)
         if p is None:
             return ""
         if p.edited:
-            return "Von dir geändert"
-        sure = f"Sicherheit {round(p.confidence * 100)} %"
+            return tr("Von dir geändert")
+        sure = tr("Sicherheit {percent} %", percent=round(p.confidence * 100))
         return f"{p.reason} ({sure})" if p.reason else sure
 
     def editable_target(self, item: FileItem) -> str | None:
@@ -126,12 +128,11 @@ class AiOrganize(Operation):
 
     def info(self) -> dict[str, Any]:
         cfg = self._cfg
-        where = "lokal" if not cfg.is_cloud else "Cloud"
-        hint = (
-            f"Das Modell ({cfg.ai.provider}, {self._model()}, {where}) soll für "
-            f"{self._pending} Dateien Ordner und Namen vorschlagen. "
-            "Dabei wird nur gesendet, was die Datenschutzstufe erlaubt."
-        )
+        hint = tr(
+            "Das Modell ({provider}, {model}, {where}) soll für {n} Dateien Ordner und Namen vorschlagen. "
+            "Dabei wird nur gesendet, was die Datenschutzstufe erlaubt.",
+            provider=cfg.ai.provider, model=self._model(),
+            where=tr("Cloud") if cfg.is_cloud else tr("lokal"), n=self._pending)
         return {
             "pendingFiles": self._pending, "pendingBytes": 0, "analysisHint": hint,
             "analyzed": len(self._props), "withheld": len(self._withheld),
@@ -187,7 +188,7 @@ class AiOrganize(Operation):
         """Ziel von Hand ändern. Gleiche Sicherheitsprüfung wie bei Vorschlägen des Modells."""
         text = target.strip().replace("\\", "/")
         if not text:
-            raise ValueError("Ziel fehlt")
+            raise ValueError(tr("Ziel fehlt"))
         folder_text, _, name_text = text.rpartition("/")
         item = FileItem(path)
         try:

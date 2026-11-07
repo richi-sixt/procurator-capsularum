@@ -5,13 +5,21 @@
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.45;
   color-scheme: light dark;
 }
+/* Dunkel: nach Einstellung des Systems (auto) oder von Hand (data-theme="dark") */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #14171c; --surface: #1c2027; --text: #e6e9ee; --muted: #98a2b3; --border: #323844;
     --accent: #6c93ff; --accent-text: #0d1117; --ok: #5fd39a; --ok-bg: #173a2a;
     --warn: #ff8a80; --warn-bg: #43201d; --dim-bg: #272c35; --row-hover: #222a38;
   }
 }
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #14171c; --surface: #1c2027; --text: #e6e9ee; --muted: #98a2b3; --border: #323844;
+  --accent: #6c93ff; --accent-text: #0d1117; --ok: #5fd39a; --ok-bg: #173a2a;
+  --warn: #ff8a80; --warn-bg: #43201d; --dim-bg: #272c35; --row-hover: #222a38;
+}
+:root[data-theme='light'] { color-scheme: light; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); }
 h1 { font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: .55rem; }
@@ -119,3 +127,26 @@ textarea { font: inherit; color: inherit; background: var(--surface); border: 1p
 .markdown img { max-width: 100%; border: 1px solid var(--border); border-radius: 8px; margin: .6rem 0; }
 .markdown a { color: var(--accent); }
 @media (max-width: 700px) { .dialog.help { grid-template-columns: 1fr; } .help-nav { display: none; } }
+
+/* Bildvorschau */
+.thumb-btn { padding: 0; border: 0; background: none; margin-right: .6rem; vertical-align: middle; line-height: 0; cursor: zoom-in; }
+.thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 5px; border: 1px solid var(--border); background: var(--dim-bg); }
+.dialog.image-dialog { width: auto; max-width: min(1040px, 100%); text-align: center; }
+.image-dialog img { max-width: 100%; max-height: 70vh; border-radius: 6px; }
+
+.reveal-btn { margin-left: .4rem; font-size: .85rem; opacity: .75; } .reveal-btn:hover { opacity: 1; }
+.related { margin-top: .3rem; } .related summary { cursor: pointer; font-size: .8rem; color: var(--accent); }
+.related ul { list-style: none; padding: 0; margin: .3rem 0 0; } .related li { word-break: break-all; padding: .1rem 0; }
+.related .badge { margin-left: .4rem; }
+.image-stage { display: flex; align-items: center; justify-content: center; gap: .6rem; }
+.image-stage .nav { font-size: 1.6rem; line-height: 1; padding: .4rem .7rem; }
+.preload { display: none; }
+
+/* Darstellung und Sprache in der Kopfzeile */
+.header-actions { align-items: center; }
+.icon-btn { font-size: 1.05rem; line-height: 1; padding: .35rem .6rem; }
+.lang-select { width: auto; padding: .35rem .5rem; }
+
+/* Schmale Fenster (Handy): Kopfzeile bricht um statt abzuschneiden */
+header { flex-wrap: wrap; gap: .5rem; }
+.header-actions { flex-wrap: wrap; }

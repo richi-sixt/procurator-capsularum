@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Literal
 
+from ..i18n import tr
 from ..index import AnalysisState, FileIndex
 from ..model import FileItem
 from ..scanner import natural_key
@@ -55,6 +56,7 @@ class MoveDuplicates(Operation):
         self._move: dict[Path, Path] = {}  # Kopie -> behaltene Datei
         self._keep: dict[Path, int] = {}  # behaltene Datei -> Anzahl Kopien
         self._links: set[Path] = set()  # weitere Namen der behaltenen Datei (Hardlinks)
+        self._group: dict[Path, list[Path]] = {}  # Datei -> die anderen der Gruppe, behaltene zuerst
         self._reclaimable = 0
         self._groups = 0
         self._pending = AnalysisState()
@@ -114,7 +116,7 @@ class MoveDuplicates(Operation):
 
     def prepare(self, items: list[FileItem]) -> None:
         self._items = {i.path: i for i in items}
-        self._move, self._keep, self._links = {}, {}, set()
+        self._move, self._keep, self._links, self._group = {}, {}, set(), {}
         candidates = self._candidates(items)
         self._excluded = {i.path for i in items} - {c.path for c in candidates}
         groups, self._pending = FileIndex().duplicates_cached(
@@ -125,6 +127,10 @@ class MoveDuplicates(Operation):
             keeper = self._choose(g.files)
             self._keep[keeper] = len(g.files) - 1
             self._links.update(g.hardlinks.get(keeper, []))
+            names = list(g.files) + [x for f in g.files for x in g.hardlinks.get(f, [])]
+            for name in names:
+                self._group[name] = [keeper] + [o for o in names if o not in (name, keeper)] \
+                    if name != keeper else [o for o in names if o != keeper]
             for f in g.files:
                 if f == keeper:
                     continue
@@ -139,7 +145,7 @@ class MoveDuplicates(Operation):
         target = self._target_root()
         if target is not None:
             if not target.is_absolute():
-                raise ValueError("Zielordner muss ein absoluter Pfad sein")
+                raise ValueError(tr("Zielordner muss ein absoluter Pfad sein"))
             base = target
         else:
             base = (item.root or item.path.parent) / DUP_DIR
@@ -156,16 +162,20 @@ class MoveDuplicates(Operation):
             return None
         if p in self._keep:
             n = self._keep[p]
-            return f"Behalten ({KEEP_LABEL[self.keep]}), {n} Kopie{'n' if n != 1 else ''} davon"
+            return tr("Behalten ({rule}), {n} Kopie davon" if n == 1 else "Behalten ({rule}), {n} Kopien davon",
+                      rule=tr(KEEP_LABEL[self.keep]), n=n)
         if p in self._links:
-            return "Zweiter Name derselben behaltenen Datei (Hardlink)"
+            return tr("Zweiter Name derselben behaltenen Datei (Hardlink)")
         if p in self._excluded:
-            return "Liegt schon in einem Dubletten-Ordner"
-        return "Keine Dublette" if self._pending.complete else "Keine Dublette bekannt (Analyse unvollständig)"
+            return tr("Liegt schon in einem Dubletten-Ordner")
+        return tr("Keine Dublette") if self._pending.complete else tr("Keine Dublette bekannt (Analyse unvollständig)")
 
     def note(self, item: FileItem) -> str:
         keeper = self._move.get(item.path)
-        return f"Dublette von {self._rel(keeper)}" if keeper is not None else ""
+        return tr("Dublette von {name}", name=self._rel(keeper)) if keeper is not None else ""
+
+    def related(self, item: FileItem) -> list[Path]:
+        return self._group.get(item.path, [])
 
     def info(self) -> dict[str, Any]:
         return {

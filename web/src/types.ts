@@ -35,6 +35,8 @@ export type Change = {
   reason: string
   sensitive?: string
   editable?: string | null
+  related?: string[] // gleiche Dateien (Dubletten), die behaltene zuerst
+  relatedTotal?: number
 }
 
 export type PlanResponse = {

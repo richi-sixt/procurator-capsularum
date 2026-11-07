@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import ClassVar, Literal
 
 from ..ai.validate import ProposalError, clean_folder
+from ..i18n import tr
 from ..model import FileItem
 from .base import Operation
 from .rename import _TOKEN, DateStamp
@@ -33,10 +34,10 @@ class MoveToFolder(Operation):
     def destination(self, item: FileItem, new_name: str) -> Path:
         raw = self.target_dir.strip()
         if not raw:
-            raise ValueError("Zielordner fehlt")
+            raise ValueError(tr("Zielordner fehlt"))
         out = Path(raw).expanduser()
         if not out.is_absolute():
-            raise ValueError("Zielordner muss ein absoluter Pfad sein")
+            raise ValueError(tr("Zielordner muss ein absoluter Pfad sein"))
         if self.keep_structure and item.root is not None:
             try:
                 return out / item.path.relative_to(item.root).with_name(new_name)
@@ -84,16 +85,16 @@ class SortByTemplate(Operation):
     def __post_init__(self) -> None:
         self.template = self.template.strip()
         if not self.template:
-            raise ValueError("Vorlage fehlt")
+            raise ValueError(tr("Vorlage fehlt"))
         for m in _TOKEN.finditer(self.template):
             if m.group(1) not in FOLDER_TOKENS:
-                raise ValueError(
-                    f"Unbekannter Platzhalter {{{m.group(1)}}}. Erlaubt: "
-                    + ", ".join("{" + t + "}" for t in FOLDER_TOKENS))
+                raise ValueError(tr("Unbekannter Platzhalter {token}. Erlaubt: {allowed}",
+                                    token="{" + m.group(1) + "}",
+                                    allowed=", ".join("{" + t + "}" for t in FOLDER_TOKENS)))
         if "{" in _TOKEN.sub("", self.template) or "}" in _TOKEN.sub("", self.template):
-            raise ValueError("Geschweifte Klammern nur für Platzhalter, zum Beispiel {type}")
+            raise ValueError(tr("Geschweifte Klammern nur für Platzhalter, zum Beispiel {example}", example="{type}"))
         if self.base_dir.strip() and not Path(self.base_dir.strip()).expanduser().is_absolute():
-            raise ValueError("Zielordner muss ein absoluter Pfad sein")
+            raise ValueError(tr("Zielordner muss ein absoluter Pfad sein"))
         self._dates = DateStamp(self.source)
 
     def _folder(self, item: FileItem) -> str:
@@ -129,7 +130,7 @@ class SortByTemplate(Operation):
         return None if self._target_dir(item) == item.path.parent else item.name
 
     def skip_reason(self, item: FileItem) -> str | None:
-        return "Liegt schon im richtigen Ordner"
+        return tr("Liegt schon im richtigen Ordner")
 
     def destination(self, item: FileItem, new_name: str) -> Path:
         return self._target_dir(item) / new_name

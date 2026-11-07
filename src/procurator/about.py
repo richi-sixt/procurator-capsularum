@@ -15,6 +15,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .i18n import tr
+
 NAME = "Procurator Capsularum"
 AUTHOR = "Rüchan Sixt"
 YEAR = 2026
@@ -57,6 +59,11 @@ BUNDLED = [
     {"name": "PyInstaller", "url": "https://pyinstaller.org/",
      "note": "Bündelt Python und den Server (GPL-2.0 mit Ausnahme für gebündelte Programme), mitgeliefert"},
 ]
+
+
+def _localized(entry: dict[str, str]) -> dict[str, str]:
+    """Ein Eintrag mit übersetztem Hinweis."""
+    return {**entry, "note": tr(entry["note"])} if "note" in entry else dict(entry)
 
 
 def external() -> list[dict[str, str]]:
@@ -159,11 +166,11 @@ def about() -> dict[str, Any]:
         "version": version(),
         "author": AUTHOR,
         "copyright": f"© {YEAR} {AUTHOR}",
-        "license": {"id": LICENSE_ID, "name": LICENSE_NAME, "url": LICENSE_URL},
-        "notice": NOTICE,
+        "license": {"id": LICENSE_ID, "name": tr(LICENSE_NAME), "url": LICENSE_URL},
+        "notice": tr(NOTICE),
         "repository": REPO_URL,
-        "inspiration": INSPIRATION,
-        "external": external(),
+        "inspiration": [_localized(x) for x in INSPIRATION],
+        "external": [_localized(x) for x in external()],
         "components": {"python": python_components(), "frontend": frontend_components()},
         "system": {"python": platform.python_version(), "platform": platform.platform()},
     }

@@ -47,6 +47,7 @@ class PlannedChange:
     enabled: bool = True  # Checkbox in der Vorschau
     sensitive: str = ""  # Treffer der Erkennung sensibler Dateien (leer = unauffällig)
     editable: str | None = None  # Ziel als Text, wenn es in der Vorschau geändert werden darf
+    related: list[Path] = field(default_factory=list)  # gleiche Dateien (Dubletten), behaltene zuerst
 
     @property
     def will_run(self) -> bool:

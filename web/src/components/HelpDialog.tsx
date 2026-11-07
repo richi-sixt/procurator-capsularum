@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import type { HelpContent, HelpPage } from '../types'
+import { useI18n } from '../i18n'
 
 type Props = { onClose: () => void; start?: string }
 
 // Die Hilfe zeigt die Seiten aus docs/ (vom lokalen Server als HTML geliefert, rohes HTML ist dort
 // schon ausgeschlossen). Verweise auf andere Seiten und Anker bleiben im Dialog.
 export default function HelpDialog({ onClose, start }: Props) {
+  const { t, lang } = useI18n()
   const [pages, setPages] = useState<HelpPage[]>([])
   const [page, setPage] = useState<HelpContent | null>(null)
   const [error, setError] = useState('')
@@ -63,17 +65,17 @@ export default function HelpDialog({ onClose, start }: Props) {
 
   return (
     <div className="overlay" onClick={onClose}>
-      <div className="dialog help" role="dialog" aria-label="Hilfe" onClick={(e) => e.stopPropagation()}>
-        <nav className="help-nav" aria-label="Hilfeseiten">
-          <h2>Hilfe</h2>
+      <div className="dialog help" role="dialog" aria-label={t('Hilfe')} onClick={(e) => e.stopPropagation()}>
+        <nav className="help-nav" aria-label={t('Hilfeseiten')}>
+          <h2>{t('Hilfe')}</h2>
           {pages.map((p) => (
             <div key={p.name}>
               <button className={`link help-page${page?.name === p.name ? ' current' : ''}`}
                 onClick={() => open(p.name)}>{p.title}</button>
               {page?.name === p.name && (
                 <ul className="help-toc">
-                  {page.toc.filter((t) => t.level === 2).map((t) => (
-                    <li key={t.id}><button className="link" onClick={() => scrollTo(t.id)}>{t.text}</button></li>
+                  {page.toc.filter((h) => h.level === 2).map((h) => (
+                    <li key={h.id}><button className="link" onClick={() => scrollTo(h.id)}>{h.text}</button></li>
                   ))}
                 </ul>
               )}
@@ -82,10 +84,11 @@ export default function HelpDialog({ onClose, start }: Props) {
         </nav>
         <div className="help-body" ref={body} onClick={onClick}>
           {error && <p className="error" role="alert">{error}</p>}
-          {!page && !error && <p className="muted">Lädt …</p>}
+          {lang === 'en' && <p className="muted small">{t('Die Hilfe gibt es vorerst nur auf Deutsch.')}</p>}
+          {!page && !error && <p className="muted">{t('Lädt …')}</p>}
           {page && <article className="markdown" dangerouslySetInnerHTML={{ __html: page.html }} />}
         </div>
-        <button className="help-close" onClick={onClose} aria-label="Hilfe schliessen">Schliessen</button>
+        <button className="help-close" onClick={onClose} aria-label={t('Hilfe schliessen')}>{t('Schliessen')}</button>
       </div>
     </div>
   )

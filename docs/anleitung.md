@@ -31,6 +31,17 @@ Die Beispiele auf dieser Seite nutzen erfundene Demo-Dateien.
 | Fehler | Nicht ausführbar, zum Beispiel fehlende Schreibrechte oder eine unbrauchbare Vorlage. Der Grund steht in der Zeile |
 | 🔒 sensibel | Die Datei gilt als sensibel (siehe [Datenschutz](#datenschutz)). Sie bleibt für Modelle unsichtbar |
 
+**Bildvorschau:** Bei Bilddateien (JPG, PNG, WebP, HEIC, TIFF, BMP, GIF) zeigt die Tabelle ein kleines Vorschaubild.
+Ein Klick öffnet es grösser, mit den Pfeiltasten (← →) oder den Knöpfen blätterst du durch alle Bilder der Liste, Esc schliesst. Mit «Vorschaubilder» oben lässt es sich abschalten (die Wahl bleibt
+gemerkt). Die Bilder werden vom lokalen Server verkleinert und verlassen den Rechner nie. Sensible Dateien
+bekommen kein Vorschaubild.
+
+**Im Dateimanager zeigen:** Das Symbol 📂 neben einem Dateinamen öffnet die Datei im Finder (Windows: Explorer). So
+kannst du eine Datei selbst ansehen, bevor du etwas ausführst. Gibt es die Datei nicht mehr, öffnet sich ihr Ordner.
+
+**Gleiche Dateien bei Dubletten:** Unter jeder Dublette steht «Gleiche Dateien (n)». Aufgeklappt siehst du alle
+Dateien der Gruppe mit vollem Pfad, die behaltene Datei zuerst und mit der Marke «behalten». Jede hat ihr eigenes 📂.
+
 **Konflikte lösen:** Mit «Bei Kollision Nummer anhängen» (Kommandozeile `--force-unique`) bekommen gleiche
 Namen eine Nummer. Sonst ändere die Aktion oder wähle die Zeilen ab.
 
@@ -260,6 +271,13 @@ uv run pc sensitive ORDNER      # zeigt, welche Dateien betroffen wären
 
 ## Einstellungen und Dateien
 
+**Sprache und Darstellung:** In der Kopfzeile wechselt das Symbol ◐ / ☀ / ☾ zwischen System, Hell und Dunkel.
+Daneben wählst du Deutsch, English oder Auto (Sprache des Browsers). Die Wahl gilt für die ganze Oberfläche und für
+die Meldungen des Programms (Gründe in der Vorschau, Fehlermeldungen, Namen der Aktionen) und wird in
+`config.toml` unter `[ui]` gespeichert, auch in der Desktop-App. Die Hilfe gibt es vorerst nur auf Deutsch.
+Die Ordner, die das Programm anlegt (`Bilder`, `Dokumente`, `_Dubletten` und so weiter), heissen in jeder
+Sprache gleich. Die KI schreibt ihre Begründungen in der gewählten Sprache.
+
 Unter **Über das Programm** (unten auf der Seite) stehen Version, Autor, Lizenz und die Lizenzen der
 verwendeten Bausteine. Der Block «Für Fehlermeldungen» lässt sich in eine Fehlermeldung kopieren.
 
@@ -281,6 +299,11 @@ learn = true
 sensitive_keywords = ["pass", "steuer", "konto", "…"]   # Standardliste gekürzt
 sensitive_extensions = [".pem", ".key", "…"]            # Standardliste gekürzt
 allow_sensitive_local = false
+
+[ui]
+language = "auto"                 # auto (Sprache des Browsers), "de" oder "en"
+theme = "auto"                    # auto (System), "light" oder "dark"
+thumbs = true                     # Vorschaubilder
 ```
 
 Konfiguration, Verlauf und Datei-Index liegen im Benutzerordner (macOS:

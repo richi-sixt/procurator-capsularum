@@ -18,6 +18,10 @@ from urllib.parse import urlparse
 import tomli_w
 from platformdirs import user_config_path
 
+from .i18n import tr
+
+UI_LANGUAGES = ("auto", "de", "en")
+UI_THEMES = ("auto", "light", "dark")
 PROVIDERS = ("ollama", "claude")
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
@@ -65,9 +69,20 @@ class PrivacyConfig:
 
 
 @dataclass
+class UiConfig:
+    """Darstellung. Liegt hier und nicht im Browser, weil die Desktop-App bei jedem Start einen anderen
+    Port (und damit einen anderen Browserspeicher) hat."""
+
+    language: str = "auto"  # auto = Sprache des Browsers
+    theme: str = "auto"  # auto = Einstellung des Systems
+    thumbs: bool = True  # Vorschaubilder bei Bildern
+
+
+@dataclass
 class Config:
     ai: AiConfig = field(default_factory=AiConfig)
     privacy: PrivacyConfig = field(default_factory=PrivacyConfig)
+    ui: UiConfig = field(default_factory=UiConfig)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -91,7 +106,7 @@ def config_path() -> Path:
 
 def _clean_list(values: Any, label: str, *, ext: bool = False) -> list[str]:
     if not isinstance(values, list) or not all(isinstance(v, str) for v in values):
-        raise ConfigError(f"{label}: Liste von Texten erwartet")
+        raise ConfigError(tr("{label}: Liste von Texten erwartet", label=tr(label)))
     out: list[str] = []
     for v in values:
         v = v.strip().casefold()
@@ -100,10 +115,10 @@ def _clean_list(values: Any, label: str, *, ext: bool = False) -> list[str]:
         if not v or v in out:
             continue
         if len(v) > 50:
-            raise ConfigError(f"{label}: Eintrag zu lang: {v[:20]}…")
+            raise ConfigError(tr("{label}: Eintrag zu lang: {value}…", label=tr(label), value=v[:20]))
         out.append(v)
     if len(out) > 200:
-        raise ConfigError(f"{label}: höchstens 200 Einträge")
+        raise ConfigError(tr("{label}: höchstens 200 Einträge", label=tr(label)))
     return out
 
 
@@ -115,29 +130,29 @@ def parse(data: dict[str, Any]) -> Config:
     ai = AiConfig(**{**asdict(base.ai), **{k: v for k, v in ai_in.items() if k in asdict(base.ai)}})
 
     if ai.provider not in PROVIDERS:
-        raise ConfigError("Anbieter muss ollama oder claude sein")
+        raise ConfigError(tr("Anbieter muss ollama oder claude sein"))
     for label, value in (("Ollama-Modell", ai.ollama_model), ("Claude-Modell", ai.claude_model)):
         if not isinstance(value, str) or not value.strip() or len(value) > 100:
-            raise ConfigError(f"{label} fehlt oder ist zu lang")
+            raise ConfigError(tr("{label} fehlt oder ist zu lang", label=label))
     ai.ollama_model, ai.claude_model = ai.ollama_model.strip(), ai.claude_model.strip()
     if not isinstance(ai.privacy_level, int) or isinstance(ai.privacy_level, bool) \
             or ai.privacy_level not in PRIVACY_LEVELS:
-        raise ConfigError("Datenschutzstufe muss 0, 1 oder 2 sein")
+        raise ConfigError(tr("Datenschutzstufe muss 0, 1 oder 2 sein"))
     if not isinstance(ai.learn, bool):
-        raise ConfigError("«Aus Entscheidungen lernen»: ja oder nein erwartet")
+        raise ConfigError(tr("«Aus Entscheidungen lernen»: ja oder nein erwartet"))
     if not isinstance(ai.api_key_env, str) or not ENV_NAME.match(ai.api_key_env.strip()):
-        raise ConfigError(
+        raise ConfigError(tr(
             "Hier steht der Name der Umgebungsvariable (zum Beispiel ANTHROPIC_API_KEY), "
-            "nicht der Schlüssel selbst")
+            "nicht der Schlüssel selbst"))
     ai.api_key_env = ai.api_key_env.strip()
     parsed = urlparse(str(ai.ollama_host).strip())
     if parsed.scheme not in ("http", "https") or parsed.hostname not in LOCAL_HOSTS:
-        raise ConfigError("Ollama darf nur über localhost oder 127.0.0.1 angesprochen werden")
+        raise ConfigError(tr("Ollama darf nur über localhost oder 127.0.0.1 angesprochen werden"))
     ai.ollama_host = str(ai.ollama_host).strip().rstrip("/")
 
     allow_local = pr_in.get("allow_sensitive_local", base.privacy.allow_sensitive_local)
     if not isinstance(allow_local, bool):
-        raise ConfigError("«Sensible Dateien an lokales Modell»: ja oder nein erwartet")
+        raise ConfigError(tr("«Sensible Dateien an lokales Modell»: ja oder nein erwartet"))
 
     privacy = PrivacyConfig(
         allow_sensitive_local=allow_local,
@@ -147,7 +162,19 @@ def parse(data: dict[str, Any]) -> Config:
             pr_in.get("sensitive_extensions", base.privacy.sensitive_extensions),
             "Endungen", ext=True),
     )
-    return Config(ai, privacy)
+    return Config(ai, privacy, parse_ui(data.get("ui", {}) or {}))
+
+
+def parse_ui(data: dict[str, Any]) -> UiConfig:
+    base = UiConfig()
+    ui = UiConfig(**{**asdict(base), **{k: v for k, v in data.items() if k in asdict(base)}})
+    if ui.language not in UI_LANGUAGES:
+        raise ConfigError(tr("Sprache muss auto, de oder en sein"))
+    if ui.theme not in UI_THEMES:
+        raise ConfigError(tr("Darstellung muss auto, light oder dark sein"))
+    if not isinstance(ui.thumbs, bool):
+        raise ConfigError(tr("«Vorschaubilder»: ja oder nein erwartet"))
+    return ui
 
 
 def load(path: Path | None = None) -> tuple[Config, str | None]:
@@ -161,7 +188,7 @@ def load(path: Path | None = None) -> tuple[Config, str | None]:
     try:
         return parse(tomllib.loads(p.read_text(encoding="utf-8"))), None
     except (tomllib.TOMLDecodeError, ConfigError, OSError, TypeError) as exc:
-        return Config(), f"Konfigurationsdatei nicht lesbar, Standardwerte gelten: {exc}"
+        return Config(), tr("Konfigurationsdatei nicht lesbar, Standardwerte gelten: {error}", error=exc)
 
 
 def save(cfg: Config, path: Path | None = None) -> Path:
