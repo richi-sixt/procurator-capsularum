@@ -193,7 +193,7 @@ Konflikterkennung und Rückgängig funktionieren deshalb für jede Operation gle
 ## Bekannte Einschränkungen
 
 - Nur unter macOS getestet. Linux funktioniert vermutlich, Windows ist ungetestet.
-- Die Vorschau-Tabelle ist nicht virtualisiert und wird bei Zehntausenden Dateien langsam.
+- Die Vorschau-Tabelle zeichnet ab 200 Zeilen nur die sichtbaren. Mit 20000 Dateien steht sie nach etwa zwei Sekunden, die Berechnung des Plans auf dem Server und das Übertragen brauchen dabei den grössten Teil. Gemessen ist das nur auf macOS.
 - Ein Undo, das nur teilweise gelingt, lässt sich nicht wiederholen.
 - KI-Vorschläge: Die Ollama-Anbindung ist mit einem echten Modell getestet. Die Claude-Anbindung ist automatisch nur mit simulierten Antworten getestet und vom Autor einmal von Hand mit der echten API ausprobiert. Messungen zur Geschwindigkeit stehen noch aus.
 - Stufe 2 der Datenschutzstufen liest nur einfache Textdateien, keine PDFs oder Office-Dokumente.

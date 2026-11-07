@@ -301,14 +301,12 @@ export default function App() {
           {plan && plan.changes.length > 0 && (
             <>
               {sortCustom && <p className="muted small">Zeilen per Ziehen umsortieren: bestimmt die Nummerierung.</p>}
-              <div className="table-wrap">
-                <PreviewTable changes={plan.changes} showSkipped={showSkipped || listing} listing={listing}
+              <PreviewTable changes={plan.changes} showSkipped={showSkipped || listing} listing={listing}
                   showFolder={recursive || paths.length > 1}
                   disabled={disabled}
                   onToggle={(s) => setDisabled((d) => { const n = new Set(d); if (n.has(s)) n.delete(s); else n.add(s); return n })}
                   onToggleAll={(on) => setDisabled(on ? new Set() : new Set(plan.changes.filter((c) => c.status === 'ok').map((c) => c.src)))}
                   draggable={sortCustom} onReorder={setOrder} onEdit={opName === 'ai_organize' ? editTarget : undefined} />
-              </div>
               {!listing && <div className="actionbar">
                 <span className="muted">{runnable} von {counts?.ok ?? 0} ausgewählt</span>
                 {busy && job && jobKind === 'apply' ? (

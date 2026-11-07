@@ -165,6 +165,7 @@ Meldung ist also für Nutzer gedacht.
 
 - `web/src/App.tsx`: Zustand, Jobs mit Polling, Vorschau-Tabelle.
 - `web/src/api.ts` und `types.ts`: Aufrufe an `/api` und ihre Typen.
+- `web/src/windowing.ts`: Berechnung der sichtbaren Zeilen. `PreviewTable` zeichnet ab 200 Zeilen nur diese (plus Reserve) und füllt den Rest mit Platzhalterzeilen. Die Zeilenhöhen sind verschieden und werden gemessen, bis dahin gilt eine Schätzung. Bei kleineren Listen ist alles wie ohne Windowing. Es gibt noch keine JavaScript-Tests, die Funktion `visibleRange` ist rein und dafür vorbereitet.
 - `web/src/components/`: `OperationForm` (aus der Beschreibung der Registry), `PreviewTable`,
   `FolderPicker`, `HistoryPanel`, `SettingsDialog`, `SendDialog`, `AboutDialog`.
 - Ein neues Formularfeld braucht nur einen Eintrag in `registry.py`. Eigene Bedienelemente nur, wenn ein Feld

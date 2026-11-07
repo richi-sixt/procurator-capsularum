@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import type { Change, Status } from '../types'
+import { ESTIMATE, WINDOW_FROM, visibleRange } from '../windowing'
 
 type Props = {
   changes: Change[]
@@ -21,6 +22,46 @@ export default function PreviewTable(p: Props) {
   const [editing, setEditing] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const rows = p.showSkipped ? p.changes : p.changes.filter((c) => c.status !== 'skip')
+  const windowed = rows.length > WINDOW_FROM
+  const wrap = useRef<HTMLDivElement>(null)
+  const [heights] = useState(() => new Map<string, number>())
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewport, setViewport] = useState(600)
+  const [, remeasure] = useState(0)
+  const raf = useRef(0)
+
+  const onScroll = useCallback(() => {
+    if (raf.current) return
+    raf.current = requestAnimationFrame(() => {
+      raf.current = 0
+      if (wrap.current) setScrollTop(wrap.current.scrollTop)
+    })
+  }, [])
+
+  useLayoutEffect(() => {
+    const el = wrap.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setViewport(el.clientHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Echte Zeilenhöhen merken. Ändert sich eine, wird neu berechnet.
+  useLayoutEffect(() => {
+    if (!windowed || !wrap.current) return
+    let changed = false
+    wrap.current.querySelectorAll<HTMLTableRowElement>('tr[data-key]').forEach((tr) => {
+      const key = tr.dataset.key as string
+      const h = tr.offsetHeight
+      if (Math.abs((heights.get(key) ?? ESTIMATE) - h) > 1) { heights.set(key, h); changed = true }
+    })
+    if (changed) requestAnimationFrame(() => remeasure((n) => n + 1))
+  })
+
+  const range = windowed
+    ? visibleRange(rows.map((c) => c.src), heights, scrollTop, viewport)
+    : { start: 0, end: rows.length, before: 0, after: 0 }
+  const shown = rows.slice(range.start, range.end)
   const okRows = p.changes.filter((c) => c.status === 'ok')
   const allOn = okRows.length > 0 && okRows.every((c) => !p.disabled.has(c.src))
 
@@ -40,6 +81,7 @@ export default function PreviewTable(p: Props) {
   }
 
   return (
+    <div className="table-wrap" ref={wrap} onScroll={windowed ? onScroll : undefined}>
     <table className="preview">
       <thead>
         <tr>
@@ -53,10 +95,11 @@ export default function PreviewTable(p: Props) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((c) => {
+        {windowed && range.before > 0 && <tr aria-hidden style={{ height: range.before }}><td colSpan={4} style={{ padding: 0, border: 0 }} /></tr>}
+        {shown.map((c) => {
           const active = c.status === 'ok'
           return (
-            <tr key={c.src} className={`row-${c.status}${active && p.disabled.has(c.src) ? ' off' : ''}`}
+            <tr key={c.src} data-key={c.src} className={`row-${c.status}${active && p.disabled.has(c.src) ? ' off' : ''}`}
               title={c.reason || undefined}
               draggable={p.draggable} onDragStart={() => setDragging(c.src)}
               onDragOver={(e) => p.draggable && e.preventDefault()} onDrop={() => drop(c.src)}>
@@ -95,7 +138,9 @@ export default function PreviewTable(p: Props) {
             </tr>
           )
         })}
+        {windowed && range.after > 0 && <tr aria-hidden style={{ height: range.after }}><td colSpan={4} style={{ padding: 0, border: 0 }} /></tr>}
       </tbody>
     </table>
+    </div>
   )
 }
