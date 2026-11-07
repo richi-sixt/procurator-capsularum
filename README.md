@@ -4,7 +4,7 @@
 
 Procurator Capsularum bündelt, was man regelmässig mit vielen Dateien und Büchern tut: Ordner wählen,
 Aktion wählen, in einer Vorschau prüfen, was passieren würde, und erst dann ausführen. Alles läuft lokal
-auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. Eine Desktop-App ist geplant.
+auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. Unter macOS lässt sich auch eine Desktop-App bauen.
 
 > **Dokumentation:** [Anleitung](docs/anleitung.md) für Anwender, [Entwicklung](docs/entwicklung.md) für alle, die am Code arbeiten.
 >
@@ -50,6 +50,8 @@ uv run pc serve
 ```
 
 Dann im Browser <http://127.0.0.1:8765> öffnen. Ohne die Oberfläche läuft auch die Kommandozeile (siehe unten).
+
+Unter macOS lässt sich daraus auch eine **Desktop-App** mit eigenem Fenster bauen (`desktop/build.sh`, siehe [desktop/README.md](desktop/README.md)).
 
 ## Benutzung
 
@@ -201,7 +203,7 @@ Konflikterkennung und Rückgängig funktionieren deshalb für jede Operation gle
 
 ## Geplant
 
-PDF → Markdown, EPUB-Konvertierung und eine Desktop-App.
+PDF → Markdown und EPUB-Konvertierung.
 
 ## Lizenz
 

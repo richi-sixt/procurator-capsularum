@@ -1,0 +1,13 @@
+{
+  "name": "procurator-capsularum-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "author": "Rüchan Sixt",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4"
+  }
+}

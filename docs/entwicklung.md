@@ -47,6 +47,13 @@ cd web && npm ci && npm run lint && npm run build
 Ohne `unar` (wie auf den CI-Rechnern) melden die Tests dem Programm, es sei vorhanden (`tests/conftest.py`). Tests, die wirklich `unar` und `rar` brauchen, werden übersprungen. Neue Tests dürfen nicht stillschweigend ein installiertes Programm voraussetzen. Prüfen lässt sich das mit einem PATH ohne dieses Programm. Der Lint der Oberfläche meldet derzeit
 Warnungen, aber keine Fehler. Sie brechen den Job nicht ab.
 
+## Desktop-App
+
+Die macOS-App liegt in `desktop/` (Tauri-Hülle plus gebündelter Server), Bauen mit `desktop/build.sh`. Der Aufbau
+und die Fallstricke stehen in `desktop/README.md`. Der Server der App ist `procurator.desktop` (freier Port,
+Startmeldung auf der ersten Zeile, Ende mit dem Standardeingang). Im gebündelten Programm liegen Oberfläche,
+Hilfe und Lizenzangaben neben dem Code (`pc-server.spec`).
+
 ## Aufbau
 
 ```
@@ -57,6 +64,7 @@ src/procurator/
   ops/                     Operationen, Register mit Formular-Beschreibung
   meta.py                  Datum aus EXIF und Dateistempeln
   help.py                  Hilfe in der App: docs/*.md als HTML
+  desktop.py               Server für die Desktop-App (desktop/)
   index.py                 Datei-Index und Dubletten
   config.py  privacy.py    Konfiguration, sensible Dateien
   ai/                      Anbieter (Ollama, Claude), Vorschläge, Prüfung, Lernen

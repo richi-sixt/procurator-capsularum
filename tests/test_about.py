@@ -188,3 +188,10 @@ def test_cli_version_and_about():
     r = runner.invoke(cli_app, ["about", "--licenses"], env=env)
     assert r.exit_code == 0 and "fastapi" in r.output.lower() and "MIT" in r.output
     assert "react" in r.output
+
+
+def test_desktop_build_lists_the_programs_it_ships(monkeypatch):
+    monkeypatch.delenv("PROCURATOR_DESKTOP", raising=False)
+    assert {e["name"] for e in aboutmod.about()["external"]} == {"unar", "Ollama"}
+    monkeypatch.setenv("PROCURATOR_DESKTOP", "1")
+    assert {"Tauri", "PyInstaller"} <= {e["name"] for e in aboutmod.about()["external"]}

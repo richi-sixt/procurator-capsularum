@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Procurator Capsularum</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f7f9; --text: #1c2026; --muted: #667085; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #14171c; --text: #e6e9ee; --muted: #98a2b3; } }
+  body { margin: 0; height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, sans-serif; text-align: center; }
+  svg { width: 84px; height: 84px; }
+  h1 { font-size: 1.1rem; margin: .8rem 0 .2rem; }
+  p { margin: 0; color: var(--muted); }
+  #error { display: none; max-width: 32rem; margin: 1rem auto 0; color: #d92d20; white-space: pre-wrap; text-align: left; }
+</style>
+</head>
+<body>
+<main>
+  <svg viewBox="0 0 64 64" aria-hidden="true">
+    <rect width="64" height="64" rx="14" fill="#2b2f7e"/>
+    <g stroke="#2b2f7e" stroke-width="1.5">
+      <g transform="rotate(-14 20 40)"><rect x="15" y="14" width="10" height="28" fill="#f4f1ff"/><ellipse cx="20" cy="14" rx="5" ry="3" fill="#fff"/></g>
+      <g transform="rotate(14 44 40)"><rect x="39" y="14" width="10" height="28" fill="#f4f1ff"/><ellipse cx="44" cy="14" rx="5" ry="3" fill="#fff"/></g>
+      <rect x="27" y="8" width="10" height="34" fill="#f4f1ff"/><ellipse cx="32" cy="8" rx="5" ry="3" fill="#fff"/>
+    </g>
+    <rect x="14" y="34" width="36" height="22" rx="4" fill="#f5a524"/>
+    <rect x="14" y="34" width="36" height="5" rx="2.5" fill="#d98a0b"/>
+    <rect x="14" y="51" width="36" height="5" rx="2.5" fill="#d98a0b"/>
+  </svg>
+  <h1>Procurator Capsularum</h1>
+  <p id="status">Startet …</p>
+  <pre id="error" role="alert"></pre>
+</main>
+<script>
+  // Wird von der Hülle aufgerufen, wenn der Server nicht startet.
+  window.showError = (text) => {
+    document.getElementById('status').textContent = 'Der Server konnte nicht gestartet werden.';
+    const el = document.getElementById('error');
+    el.textContent = text; el.style.display = 'block';
+  };
+</script>
+</body>
+</html>

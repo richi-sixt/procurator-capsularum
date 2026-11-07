@@ -10,6 +10,11 @@ local/
 node_modules/
 web/dist/
 
+# Tauri Builds
+desktop/build/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+
 # Nur lokal: Planung und Werkzeug-Einstellungen
 Vision.md
 .claude/

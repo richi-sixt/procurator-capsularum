@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import importlib.metadata as md
 import json
+import os
 import platform
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +23,9 @@ LICENSE_ID = "AGPL-3.0-or-later"
 LICENSE_NAME = "GNU Affero General Public License, Version 3 oder neuer"
 LICENSE_URL = "https://www.gnu.org/licenses/agpl-3.0.html"
 DIST_NAME = "procurator-capsularum"
-WEB_DIR = Path(__file__).resolve().parents[2] / "web"
+# Gebündelt (Desktop-App) liegt die Oberfläche neben dem Code, sonst im Repository.
+WEB_DIR = (Path(sys._MEIPASS) / "web" if getattr(sys, "frozen", False)  # type: ignore[attr-defined]
+           else Path(__file__).resolve().parents[2] / "web")
 
 NOTICE = (
     "Dieses Programm ist freie Software. Du darfst es unter den Bedingungen der GNU Affero General "
@@ -45,6 +49,18 @@ EXTERNAL = [
     {"name": "Ollama", "url": "https://ollama.com/",
      "note": "Lokale Sprachmodelle für die KI-Vorschläge, separat installiert"},
 ]
+
+# Nur in der Desktop-App: Programme, die mitgeliefert werden (die Hülle setzt PROCURATOR_DESKTOP).
+BUNDLED = [
+    {"name": "Tauri", "url": "https://tauri.app/",
+     "note": "Fenster der Desktop-App (MIT oder Apache-2.0), mitgeliefert"},
+    {"name": "PyInstaller", "url": "https://pyinstaller.org/",
+     "note": "Bündelt Python und den Server (GPL-2.0 mit Ausnahme für gebündelte Programme), mitgeliefert"},
+]
+
+
+def external() -> list[dict[str, str]]:
+    return EXTERNAL + BUNDLED if os.environ.get("PROCURATOR_DESKTOP") else EXTERNAL
 
 
 def _norm(name: str) -> str:
@@ -147,7 +163,7 @@ def about() -> dict[str, Any]:
         "notice": NOTICE,
         "repository": REPO_URL,
         "inspiration": INSPIRATION,
-        "external": EXTERNAL,
+        "external": external(),
         "components": {"python": python_components(), "frontend": frontend_components()},
         "system": {"python": platform.python_version(), "platform": platform.platform()},
     }
