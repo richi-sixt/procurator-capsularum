@@ -169,7 +169,6 @@ EN: dict[str, str] = {
     "Kein Ordner": "Not a folder",
     "Pfad muss absolut sein": "Path must be absolute",
     "Kein Bild": "Not an image",
-    "Sensible Datei: keine Vorschau": "Sensitive file: no preview",
     "Bild nicht lesbar": "Image not readable",
     "Diese Aktion braucht keine Analyse": "This action needs no analysis",
     "Datei existiert nicht: {path}": "File does not exist: {path}",
@@ -301,6 +300,18 @@ EN: dict[str, str] = {
     "Vorhandene CBZ mitkopieren (nur mit Zielordner)": "Also copy existing CBZ (target folder only)",
     "PDF mitkopieren (nur mit Zielordner)": "Also copy PDF (target folder only)",
     "Bilder konvertieren": "Convert images",
+    "PDF-Titel auf Dateinamen setzen": "Set PDF title to file name",
+    "Die Kopien mit neuem Titel landen hier, die Originale bleiben unverändert.":
+        "The copies with the new title are saved here, the originals stay unchanged.",
+    "Führende Nummer weglassen (aus «14 Name» wird «Name»)":
+        "Leave out the leading number («14 Name» becomes «Name»)",
+    "Zeigt den Titel in den Metadaten und ersetzt ihn durch den Dateinamen. Das Ergebnis ist eine Kopie im Zielordner.":
+        "Shows the title in the metadata and replaces it with the file name. The result is a copy in the target folder.",
+    "PDF ist verschlüsselt": "PDF is encrypted",
+    "Titel stimmt schon": "Title already matches",
+    "Titel: «{old}» → «{new}»": "Title: «{old}» → «{new}»",
+    "(leer)": "(empty)",
+    "Titel gesetzt": "Title set",
     "JPG, PNG, WebP, HEIC, TIFF und BMP umwandeln und optional verkleinern.":
         "Convert JPG, PNG, WebP, HEIC, TIFF and BMP and optionally shrink them.",
     "Format": "Format",

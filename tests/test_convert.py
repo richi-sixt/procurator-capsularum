@@ -166,3 +166,60 @@ def test_missing_unar_marks_error(folder, monkeypatch):
     monkeypatch.setattr(shutil, "which", lambda name: None)
     plan = make_plan(CbrToCbz(), scan(folder))
     assert plan.changes[0].status == Status.ERROR and "unar" in plan.changes[0].reason
+
+
+# --- PDF-Titel ---------------------------------------------------------------
+
+
+def make_pdf(path: Path, title: str | None) -> None:
+    from pypdf import PdfWriter
+
+    w = PdfWriter()
+    w.add_blank_page(200, 200)
+    if title is not None:
+        w.add_metadata({"/Title": title})
+    with open(path, "wb") as fh:
+        w.write(fh)
+
+
+def pdf_title(path: Path) -> str:
+    from pypdf import PdfReader
+
+    return str(PdfReader(str(path)).metadata.title)
+
+
+def test_pdf_title_plan_and_run(folder, tmp_path):
+    from procurator.ops.pdftitle import SetPdfTitle
+
+    make_pdf(folder / "14 Ermittlung.pdf", "myVBV Lernmedien")
+    make_pdf(folder / "Fertig.pdf", "Fertig")
+    (folder / "note.txt").write_text("x")
+    out = tmp_path / "ziel"
+    plan = make_plan(SetPdfTitle(output_dir=str(out)), scan(folder))
+    by = {c.src.name: c for c in plan.changes}
+    assert by["14 Ermittlung.pdf"].status == Status.OK
+    assert "myVBV Lernmedien" in by["14 Ermittlung.pdf"].reason
+    assert by["Fertig.pdf"].status == Status.SKIP and "stimmt" in by["Fertig.pdf"].reason
+    assert by["note.txt"].status == Status.SKIP
+    result = apply_plan(plan)
+    assert not result.failed
+    assert pdf_title(out / "14 Ermittlung.pdf") == "14 Ermittlung"
+    assert pdf_title(folder / "14 Ermittlung.pdf") == "myVBV Lernmedien"  # Original unverändert
+
+
+def test_pdf_title_strip_number_and_missing_title(folder, tmp_path):
+    from procurator.ops.pdftitle import SetPdfTitle
+
+    make_pdf(folder / "07 Wer stellt Ansprüche.pdf", None)
+    out = tmp_path / "ziel"
+    plan = make_plan(SetPdfTitle(output_dir=str(out), strip_number=True), scan(folder))
+    assert "(leer)" in plan.changes[0].reason
+    apply_plan(plan)
+    assert pdf_title(out / "07 Wer stellt Ansprüche.pdf") == "Wer stellt Ansprüche"
+
+
+def test_pdf_title_without_output_dir_is_error(folder):
+    from procurator.ops.registry import ParamError, build
+
+    with pytest.raises(ParamError):
+        build("pdf_title", {})

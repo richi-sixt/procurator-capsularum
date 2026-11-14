@@ -260,9 +260,9 @@ def test_thumb_of_a_fake_image_is_415(client, folder):
     assert client.get("/api/thumb", params={"path": str(fake)}).status_code == 415
 
 
-def test_thumb_refuses_sensitive_files(client, folder):
+def test_thumb_of_a_sensitive_name_is_allowed_because_it_stays_local(client, folder):
     img = make_image(folder / "Pass Scan.png")
-    assert client.get("/api/thumb", params={"path": str(img)}).status_code == 403
+    assert client.get("/api/thumb", params={"path": str(img)}).status_code == 200
 
 
 def test_thumb_refuses_cross_site_requests(client, folder):
@@ -368,8 +368,8 @@ def test_thumb_of_a_huge_pdf_is_refused(client, folder, monkeypatch):
     assert client.get("/api/thumb", params={"path": str(pdf)}).status_code == 415
 
 
-def test_thumb_of_a_sensitive_pdf_is_refused(client, folder):
+def test_thumb_of_a_sensitive_pdf_is_allowed(client, folder):
     from test_extract import make_pdf
 
     pdf = make_pdf(folder / "Steuererklärung.pdf", "Geheim")
-    assert client.get("/api/thumb", params={"path": str(pdf)}).status_code == 403
+    assert client.get("/api/thumb", params={"path": str(pdf)}).status_code == 200

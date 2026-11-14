@@ -186,12 +186,18 @@ def test_plan_and_scan_flag_sensitive_files(client, make, folder):
     scan_res = client.post("/api/scan", json={"paths": [str(folder)]}).json()
     assert {f["srcName"]: f["sensitive"] for f in scan_res} == {"Steuer 2024.pdf": "steuer",
                                                                 "Urlaub.jpg": ""}
+    # Aktion ohne Modell: keine Markierung, alles bleibt auf dem Rechner
     body = {"paths": [str(folder)], "operation": "append", "params": {"text": "_x"}}
+    plan = client.post("/api/plan", json=body).json()
+    assert plan["sensitiveCount"] == 0
+    assert all(not c["sensitive"] for c in plan["changes"])
+    # Aktion mit Modell: Markierung, weil die Datei nie gesendet wird
+    body = {"paths": [str(folder)], "operation": "ai_organize", "params": {}}
     plan = client.post("/api/plan", json=body).json()
     assert plan["sensitiveCount"] == 1
     by = {c["srcName"]: c for c in plan["changes"]}
     assert by["Steuer 2024.pdf"]["sensitive"] == "steuer"
-    assert by["Steuer 2024.pdf"]["status"] == "ok"  # nur Markierung, lokal weiter möglich
+    assert by["Urlaub.jpg"]["sensitive"] == ""
 
 
 def test_config_get_put_roundtrip(client):

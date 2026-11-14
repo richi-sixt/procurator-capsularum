@@ -12,6 +12,7 @@ from .convert import CbrToCbz, ConvertImages
 from .dedupe import MoveDuplicates
 from .move import MoveToFolder, SortByTemplate
 from .organize import AiOrganize
+from .pdftitle import SetPdfTitle
 from .rename import (
     Append,
     ChangeCase,
@@ -208,6 +209,11 @@ SPECS += [
         Field("quality", "Qualität (JPG/WebP, 1 bis 100)", "number", 85),
         Field("max_edge", "Längste Seite in Pixeln (0 = Originalgrösse)", "number", 0),
     ], "JPG, PNG, WebP, HEIC, TIFF und BMP umwandeln und optional verkleinern."),
+    OperationSpec("pdf_title", "PDF-Titel auf Dateinamen setzen", "Konvertieren", SetPdfTitle, [
+        Field("output_dir", "Zielordner", "folder", "", required=True,
+              help="Die Kopien mit neuem Titel landen hier, die Originale bleiben unverändert."),
+        Field("strip_number", "Führende Nummer weglassen (aus «14 Name» wird «Name»)", "bool", False),
+    ], "Zeigt den Titel in den Metadaten und ersetzt ihn durch den Dateinamen. Das Ergebnis ist eine Kopie im Zielordner."),
 ]
 
 BY_NAME = {s.name: s for s in SPECS}

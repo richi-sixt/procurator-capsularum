@@ -250,14 +250,11 @@ def create_app(journal: Journal | None = None, static_dir: Path | None = None) -
 
     @app.get("/api/thumb")
     def thumb(request: Request, path: str, size: int = 96) -> Response:
-        """Kleines Vorschaubild einer Bilddatei. Nur Bilder, nie sensible Dateien, nie von fremden Webseiten."""
+        """Kleines Vorschaubild einer Bilddatei oder PDF. Bleibt auf dem Rechner, nie für fremde Webseiten."""
         _refuse_cross_site(request)
         p = Path(path).expanduser()
         if not p.is_absolute() or not p.is_file() or not thumbs.is_thumbable(p):
             raise HTTPException(404, tr("Kein Bild"))
-        cfg, _warning = cfgmod.load()
-        if rules_from_config(cfg).match(FileItem(p)):
-            raise HTTPException(403, tr("Sensible Datei: keine Vorschau"))
         st = p.stat()
         size = thumbs.clamp(size)
         etag = f'"{st.st_mtime_ns:x}-{st.st_size:x}-{size}"'

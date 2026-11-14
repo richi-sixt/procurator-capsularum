@@ -51,12 +51,11 @@ Die Beispiele auf dieser Seite nutzen erfundene Demo-Dateien.
 | übersprungen | Nichts zu tun (kein Treffer, Name schon richtig). Mit «Übersprungene zeigen» sichtbar |
 | Konflikt | Der neue Name gäbe es schon, oder zwei Dateien bekämen denselben Namen. Es wird nie etwas überschrieben |
 | Fehler | Nicht ausführbar, zum Beispiel fehlende Schreibrechte oder eine unbrauchbare Vorlage. Der Grund steht in der Zeile |
-| 🔒 sensibel | Die Datei gilt als sensibel (siehe [Datenschutz](#datenschutz)). Sie bleibt für Modelle unsichtbar |
+| 🔒 sensibel | Nur bei KI-Vorschlägen: Die Datei gilt als sensibel (siehe [Datenschutz](#datenschutz)) und bleibt für Modelle unsichtbar |
 
 **Bildvorschau:** Bei Bilddateien (JPG, PNG, WebP, HEIC, TIFF, BMP, GIF) zeigt die Tabelle ein kleines Vorschaubild.
 Bei PDF zeigt es die erste Seite. Ein Klick öffnet es grösser, mit den Pfeiltasten (← →) oder den Knöpfen blätterst du durch alle Bilder der Liste, Esc schliesst. Mit «Vorschaubilder» oben lässt es sich abschalten (die Wahl bleibt
-gemerkt). Die Bilder werden vom lokalen Server verkleinert und verlassen den Rechner nie. Sensible Dateien
-bekommen kein Vorschaubild.
+gemerkt). Die Bilder werden vom lokalen Server verkleinert und verlassen den Rechner nie. Bei KI-Vorschlägen bekommen sensible Dateien kein Vorschaubild.
 
 **Im Dateimanager zeigen:** Das Symbol 📂 neben einem Dateinamen öffnet die Datei im Finder (Windows: Explorer). So
 kannst du eine Datei selbst ansehen, bevor du etwas ausführst. Gibt es die Datei nicht mehr, öffnet sich ihr Ordner.
@@ -128,6 +127,14 @@ uv run pc sort '{type}/{date:%Y}' ORDNER --to ZIELORDNER
 Aktion **CBR → CBZ**, Zielordner angeben. Die Seiten bleiben bitidentisch, nur der Container ändert sich.
 Dafür braucht es das Programm `unar` (`brew install unar`). Vorhandene Ziele werden übersprungen, ein
 abgebrochener Lauf lässt sich also fortsetzen.
+
+### PDF-Titel auf den Dateinamen setzen
+
+Viele PDF tragen einen unbrauchbaren Titel in den Metadaten (zum Beispiel «Microsoft Word - Dokument1»). Lesegeräte
+und Dokumentenverwaltungen zeigen diesen Titel statt des Dateinamens. Aktion **PDF-Titel auf Dateinamen setzen**,
+Zielordner angeben. Die Vorschau zeigt pro PDF den bisherigen und den neuen Titel, PDF mit passendem Titel werden
+übersprungen. Mit **Führende Nummer weglassen** wird aus «14 Ermittlung» der Titel «Ermittlung». Das Ergebnis ist
+eine Kopie, das Original bleibt unverändert. Verschlüsselte PDF werden nicht bearbeitet.
 
 ### Ordnen mit KI-Vorschlägen
 
@@ -213,9 +220,11 @@ werden übersprungen.
 |---|---|
 | CBR → CBZ | Comic-Archiv von RAR zu ZIP, Seiten bleiben bitidentisch. Optional vorhandene CBZ und PDF mitkopieren. Braucht `unar` |
 | Bilder konvertieren | JPG, PNG, WebP, HEIC, TIFF und BMP nach JPG, PNG oder WebP, optional auf eine längste Seite verkleinern |
+| PDF-Titel auf Dateinamen setzen | Zeigt den Titel in den Metadaten und ersetzt ihn durch den Dateinamen. Zielordner nötig, das Original bleibt unverändert |
 
 Konvertieren erzeugt **neue** Dateien (`.part`-Datei, dann umbenannt), die Originale bleiben liegen. Ohne
-Zielordner liegt das Ergebnis neben der Quelle.
+Zielordner liegt das Ergebnis neben der Quelle (ausser bei «PDF-Titel auf Dateinamen setzen»: dort ist der
+Zielordner Pflicht).
 
 ## KI-Vorschläge
 
@@ -289,9 +298,10 @@ Ohne KI-Vorschläge verlassen keine Daten den Rechner. Der Server hört nur auf 
 ### Sensible Dateien
 
 Dateien, deren Name oder Ordnername mit einem Schlüsselwort **beginnt** (zum Beispiel Pass, Steuer, Konto), und
-Dateien mit bestimmten Endungen (zum Beispiel `.pem`) sind sensibel. Sie sind in der Vorschau mit 🔒 markiert
+Dateien mit bestimmten Endungen (zum Beispiel `.pem`) sind sensibel. Bei **KI-Vorschlägen** sind sie in der Vorschau mit 🔒 markiert
 und gehen **nie** an ein Modell, auch ihre Namen nicht. Nur bei einem lokalen Modell lässt sich das in den
-Einstellungen bewusst abschalten. Die Listen sind änderbar, «Auf Standard zurücksetzen» stellt sie wieder her.
+Einstellungen bewusst abschalten. Bei allen anderen Aktionen (Umbenennen, Sortieren, Konvertieren, Dubletten)
+bleibt alles auf dem Rechner, dort gibt es weder Markierung noch Einschränkung bei den Vorschaubildern. Die Listen sind änderbar, «Auf Standard zurücksetzen» stellt sie wieder her.
 
 ```bash
 uv run pc sensitive ORDNER      # zeigt, welche Dateien betroffen wären

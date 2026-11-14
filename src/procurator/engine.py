@@ -110,7 +110,9 @@ def make_plan(
         if item is not None:
             c.editable = op.editable_target(item)
             c.related = op.related(item)
-    if sensitive is not None:  # nur eine Markierung, der Status bleibt unverändert
+    # Nur bei Aktionen, die Dateiangaben an ein Modell senden, ist «sensibel» von Belang. Umbenennen, Sortieren
+    # oder Konvertieren bleibt auf dem Rechner. Die Markierung ändert den Status nicht.
+    if sensitive is not None and op.sends_data:
         hits = {item.path: sensitive.match(item) for item in items}
         for c in plan.changes:
             c.sensitive = hits.get(c.src, "")

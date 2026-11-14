@@ -3,6 +3,7 @@ from .convert import CbrToCbz, ConvertImages
 from .dedupe import MoveDuplicates
 from .move import MoveToFolder, SortByTemplate
 from .organize import AiOrganize
+from .pdftitle import SetPdfTitle
 from .rename import (
     Append,
     ChangeCase,
@@ -35,6 +36,7 @@ __all__ = [
     "RemoveChars",
     "ReplaceText",
     "Sequence",
+    "SetPdfTitle",
     "TrashDuplicates",
     "SortByTemplate",
     "Wildcard",

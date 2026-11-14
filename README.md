@@ -18,7 +18,7 @@ auf deinem Rechner, als Web-Oberfläche im Browser oder auf der Kommandozeile. U
 | **Umbenennen** | Text ersetzen (erster, letzter, alle Treffer), Wildcard (`*`, `?`), regulärer Ausdruck mit `$1`-Rückverweisen, Anhängen, Voranstellen, Zeichen entfernen und einfügen, Gross-/Kleinschreibung, Laufnummer (mit eigener Reihenfolge per Ziehen), Name aus Vorlage (zum Beispiel `{date:%Y%m%d_%H-%M-%S}_{size}`), Datum (automatisch aus dem Aufnahmedatum der Fotos, sonst aus dem ältesten Dateidatum, nie vom Ausführungstag) |
 | **Verschieben** | In einen anderen Ordner, flach oder mit nachgebauter Ordnerstruktur. Zielordner werden angelegt, auch auf ein anderes Laufwerk |
 | **Nach Regeln sortieren** | Ohne KI in Ordner nach Vorlage sortieren, zum Beispiel `{type}/{date:%Y}` ergibt `Bilder/2024`. Platzhalter: Datum (bei Fotos das Aufnahmedatum), Dateityp, Endung, Anfangsbuchstabe, bisheriger Ordner |
-| **Konvertieren** | CBR → CBZ (Seiten bleiben bitidentisch), Bilder (JPG, PNG, WebP, HEIC, TIFF, BMP → JPG, PNG, WebP, optional verkleinern) |
+| **Konvertieren** | CBR → CBZ (Seiten bleiben bitidentisch), Bilder (JPG, PNG, WebP, HEIC, TIFF, BMP → JPG, PNG, WebP, optional verkleinern), PDF-Titel in den Metadaten auf den Dateinamen setzen |
 | **Dubletten** | Findet gleiche Dateien über ihren Inhalt und verschiebt alle bis auf eine in einen Ordner `_Dubletten`, nichts wird gelöscht. Pro Zeile siehst du alle gleichen Dateien. Danach lässt sich `_Dubletten` in einer eigenen, bestätigten Aktion in den Papierkorb legen. Ein lokaler Datei-Index sorgt dafür, dass so wenig wie möglich gelesen wird |
 | **KI-Vorschläge** | Ein Sprachmodell schlägt Ordner und bessere Dateinamen vor, du prüfst und korrigierst in der Vorschau. Standardmässig mit einem lokalen Modell ([Ollama](https://ollama.com/)), optional mit Claude. Sensible Dateien werden nie gesendet. Die App lernt aus deinen Entscheidungen (angenommen, abgelehnt, korrigiert), lokal gespeichert und löschbar |
 | **Sicherheit** | Konflikterkennung (gleiche Zielnamen, vorhandene Dateien werden nie überschrieben), Verlauf mit Rückgängig, sensible Dateien werden markiert |
@@ -144,7 +144,7 @@ Dateien zeigen).
 - Der Server hört nur auf `127.0.0.1`, prüft den Host-Header und erlaubt keine fremden Webseiten (kein CORS).
 - Der Browser schickt nie fertige Zielnamen, nur Parameter. Der Server berechnet den Plan beim Ausführen neu.
 - Ohne KI-Vorschläge werden keine Daten ins Internet gesendet. Die KI-Vorschläge nutzen standardmässig ein lokales Modell (Ollama), dabei verlassen die Daten den Rechner nicht. Bei einem Cloud-Anbieter (Claude) braucht jeder Lauf eine Bestätigung.
-- **Sensible Dateien** (Schlüsselwörter wie Pass, Steuer, Konto oder Endungen wie `.pem`) werden in der Vorschau mit 🔒 markiert und nie an ein Cloud-Modell gesendet. Die Listen sind in den Einstellungen änderbar.
+- **Sensible Dateien** (Schlüsselwörter wie Pass, Steuer, Konto oder Endungen wie `.pem`) werden bei KI-Vorschlägen in der Vorschau mit 🔒 markiert und nie an ein Cloud-Modell gesendet. Bei Aktionen ohne Modell spielen sie keine Rolle. Die Listen sind in den Einstellungen änderbar.
 - **Schlüssel stehen nie in einer Datei.** Für Claude wird nur der Name der Umgebungsvariable gespeichert.
 
 ### Wo Daten liegen
